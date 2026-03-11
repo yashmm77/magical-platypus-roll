@@ -1,9 +1,14 @@
-import { LayoutDashboard, CheckSquare, Users, Settings, Plus } from "lucide-react";
+import { LayoutDashboard, CheckSquare, Users, Settings, Plus, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/hooks/useAuth";
 
 const Index = () => {
+  const { user, signOut } = useAuth();
+  const userInitials = user?.email?.substring(0, 2).toUpperCase() || "JD";
+  const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || "User";
+
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex">
       {/* Sidebar */}
@@ -34,7 +39,7 @@ const Index = () => {
           </Button>
         </nav>
 
-        <div className="p-4 border-t border-slate-200">
+        <div className="p-4 border-t border-slate-200 space-y-4">
           <div className="bg-indigo-50 rounded-xl p-4">
             <p className="text-sm font-medium text-indigo-900">Pro Plan</p>
             <p className="text-xs text-indigo-700 mt-1">Get unlimited team members and projects.</p>
@@ -42,6 +47,15 @@ const Index = () => {
               Upgrade
             </Button>
           </div>
+          
+          <Button 
+            variant="ghost" 
+            className="w-full justify-start gap-3 text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+            onClick={() => signOut()}
+          >
+            <LogOut className="w-5 h-5" />
+            Sign Out
+          </Button>
         </div>
       </aside>
 
@@ -49,14 +63,14 @@ const Index = () => {
       <main className="flex-1 flex flex-col">
         {/* Header */}
         <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8">
-          <h2 className="text-xl font-semibold text-slate-800">Dashboard Overview</h2>
+          <h2 className="text-xl font-semibold text-slate-800">Welcome back, {userName}!</h2>
           <div className="flex items-center gap-4">
             <Button className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2">
               <Plus className="w-4 h-4" />
               New Task
             </Button>
             <div className="w-10 h-10 rounded-full bg-indigo-100 border-2 border-white shadow-sm flex items-center justify-center text-indigo-700 font-bold">
-              JD
+              {userInitials}
             </div>
           </div>
         </header>
