@@ -1,17 +1,22 @@
 import { createClient } from '@supabase/supabase-js';
 
-// These variables are automatically injected by the Supabase integration
-// If you see an error about supabaseUrl being required, please ensure:
-// 1. You have completed the Supabase integration setup
-// 2. You have restarted the application using the "Restart" button
+// Check if environment variables are available
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseAnonKey) {
   console.error('Supabase credentials missing. Please check your environment variables.');
+  console.log('VITE_SUPABASE_URL:', supabaseUrl);
+  console.log('VITE_SUPABASE_ANON_KEY:', supabaseAnonKey);
 }
 
 export const supabase = createClient(
   supabaseUrl || 'https://your-project.supabase.co',
-  supabaseAnonKey || 'your-anon-key'
+  supabaseAnonKey || 'your-anon-key',
+  {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+    }
+  }
 );
