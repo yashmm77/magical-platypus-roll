@@ -11,9 +11,28 @@ const App = () => (
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
-      <Route path="/" element={<Layout><Index /></Layout>} />
-      <Route path="/team" element={<Layout><Team /></Layout>} />
-      <Route path="*" element={<NotFound />} />
+      <Route 
+        path="/" 
+        element={
+          <Layout>
+            <Index />
+          </Layout>
+        }
+      />
+      <Route 
+        path="/team" 
+        element={
+          <Layout>
+            <Team />
+          </Layout>
+        }
+      />
+      <Route 
+        path="*" 
+        element={
+          <Navigate to="/login" replace />
+        }
+      />
     </Routes>
   </Router>
 );
