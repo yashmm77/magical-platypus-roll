@@ -5,22 +5,25 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { CheckSquare, Loader2 } from "lucide-react";
+import { CheckSquare, Loader2, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const Signup = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const navigate = useNavigate();
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setErrorMsg(null);
 
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -32,10 +35,17 @@ const Signup = () => {
 
       if (error) throw error;
 
-      toast.success("Registration successful! Please check your email for verification.");
-      navigate("/login");
+      if (data.user && !data.session) {
+        toast.success("Registration successful! Please check your email for verification.");
+        navigate("/login");
+      } else if (data.session) {
+        toast.success("Account created and logged in!");
+        navigate("/");
+      }
     } catch (error: any) {
-      toast.error(error.message || "Failed to sign up");
+      const message = error.message || "Failed to sign up";
+      setErrorMsg(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -55,6 +65,12 @@ const Signup = () => {
         </CardHeader>
         <form onSubmit={handleSignup}>
           <CardContent className="space-y-4">
+            {errorMsg && (
+              <Alert variant="destructive" className="bg-red-50 border-red-200 text-red-800">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{errorMsg}</AlertDescription>
+              </Alert>
+            )}
             <div className="space-y-2">
               <Label htmlFor="fullName">Full Name</Label>
               <Input
