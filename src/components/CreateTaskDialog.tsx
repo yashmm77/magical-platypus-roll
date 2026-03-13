@@ -37,7 +37,7 @@ export const CreateTaskDialog = ({ onTaskCreated }: CreateTaskDialogProps) => {
           title: formData.title,
           description: formData.description,
           priority: formData.priority,
-          assigned_to: formData.assigned_to || null,
+          assigned_to: formData.assigned_to === "none" || !formData.assigned_to ? null : formData.assigned_to,
           status: "todo",
         }])
         .select()
@@ -113,14 +113,14 @@ export const CreateTaskDialog = ({ onTaskCreated }: CreateTaskDialogProps) => {
               <div className="grid gap-2">
                 <Label htmlFor="assignee">Assign To</Label>
                 <Select
-                  value={formData.assigned_to}
-                  onValueChange={(val) => setFormData({ ...formData, assigned_to: val })}
+                  value={formData.assigned_to || "unassigned"}
+                  onValueChange={(val) => setFormData({ ...formData, assigned_to: val === "unassigned" ? "" : val })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select member" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Unassigned</SelectItem>
+                    <SelectItem value="unassigned">Unassigned</SelectItem>
                     {users?.map((user) => (
                       <SelectItem key={user.id} value={user.id}>
                         {user.full_name || user.email}
