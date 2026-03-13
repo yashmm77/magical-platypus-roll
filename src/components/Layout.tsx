@@ -55,7 +55,7 @@ const Layout = ({ children }: LayoutProps) => {
                 <div className="flex items-center gap-4">
                   <User className="w-8 h-8 text-indigo-600" />
                   <div className="flex items-center space-x-2">
-                    <span className="text-sm font-medium text-indigo-600">{user.email}</span>
+                    <span className="text-sm font medium text-indigo-600">{user.email}</span>
                     <span className="ml-2 text-sm text-indigo-500">Admin</span>
                   </div>
                 </div>
