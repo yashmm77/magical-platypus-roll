@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { LayoutDashboard, CheckSquare, User, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
@@ -11,6 +11,7 @@ interface LayoutProps {
 
 const Layout = ({ children }: LayoutProps) => {
   const { user, loading } = useAuth();
+  const location = useLocation();
 
   if (loading) {
     return (
@@ -31,13 +32,52 @@ const Layout = ({ children }: LayoutProps) => {
           </Link>
         </div>
         <nav className="flex-1 px-4 space-y-2">
-          <Button variant="ghost" asChild className="w-full justify-start gap-3 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50">
-            <Link to="/"> <CheckSquare className="w-5 h-5" /> Dashboard </Link>
+          <Button 
+            variant="ghost" 
+            asChild 
+            className={`w-full justify-start gap-3 ${
+              location.pathname === "/" 
+                ? "bg-indigo-50 text-indigo-600" 
+                : "text-slate-600 hover:text-indigo-600 hover:bg-indigo-50"
+            }`}
+          >
+            <Link to="/"> 
+              <CheckSquare className="w-5 h-5" /> 
+              Dashboard 
+            </Link>
           </Button>
-          <Button variant="ghost" asChild className="w-full justify-start gap-3 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50">
-            <Link to="/team"> <User className="w-5 h-5" /> Team </Link>
+          <Button 
+            variant="ghost" 
+            asChild 
+            className={`w-full justify-start gap-3 ${
+              location.pathname === "/tasks" 
+                ? "bg-indigo-50 text-indigo-600" 
+                : "text-slate-600 hover:text-indigo-600 hover:bg-indigo-50"
+            }`}
+          >
+            <Link to="/tasks"> 
+              <CheckSquare className="w-5 h-5" /> 
+              Tasks 
+            </Link>
           </Button>
-          <Button variant="ghost" className="w-full justify-start gap-3 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50">
+          <Button 
+            variant="ghost" 
+            asChild 
+            className={`w-full justify-start gap-3 ${
+              location.pathname === "/team" 
+                ? "bg-indigo-50 text-indigo-600" 
+                : "text-slate-600 hover:text-indigo-600 hover:bg-indigo-50"
+            }`}
+          >
+            <Link to="/team"> 
+              <User className="w-5 h-5" /> 
+              Team 
+            </Link>
+          </Button>
+          <Button 
+            variant="ghost" 
+            className="w-full justify-start gap-3 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50"
+          >
             <Settings className="w-5 h-5" />
             Settings
           </Button>
