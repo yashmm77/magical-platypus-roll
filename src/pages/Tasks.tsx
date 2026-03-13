@@ -27,33 +27,41 @@ const Tasks = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [taskToDelete, setTaskToDelete] = useState<any>(null);
 
-  // Fetch tasks
   const fetchTasks = async () => {
     try {
+      setLoading(true);
       console.log("Fetching tasks...");
       
-      // Fetch tasks with user information
+      // Fetch tasks with a simpler join syntax
       const { data, error } = await supabase
         .from("tasks")
         .select(`
           *,
-          profiles!tasks_assigned_to_fkey(full_name, email)
+          profiles:assigned_to (
+            full_name,
+            email
+          )
         `)
         .order("created_at", { ascending: false });
 
       if (error) {
         console.error("Fetch error:", error);
-        throw error;
+        // Fallback: try fetching without join if join fails
+        const { data: simpleData, error: simpleError } = await supabase
+          .from("tasks")
+          .select("*")
+          .order("created_at", { ascending: false });
+          
+        if (simpleError) throw simpleError;
+        setTasks(simpleData || []);
+      } else {
+        console.log("Fetched tasks with profiles:", data);
+        setTasks(data || []);
       }
-      
-      console.log("Fetched tasks:", data);
-      setTasks(data || []);
-      setFilteredTasks(data || []);
     } catch (error: any) {
       console.error("Error fetching tasks:", error);
       toast.error(error.message || "Failed to fetch tasks");
       setTasks([]);
-      setFilteredTasks([]);
     } finally {
       setLoading(false);
     }
@@ -67,24 +75,20 @@ const Tasks = () => {
   useEffect(() => {
     let result = [...tasks];
     
-    // Search filter
     if (searchTerm) {
       result = result.filter(task => 
-        task.title.toLowerCase().includes(searchTerm.toLowerCase())
+        task.title?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
     
-    // Status filter
     if (statusFilter !== "all") {
       result = result.filter(task => task.status === statusFilter);
     }
     
-    // Priority filter
     if (priorityFilter !== "all") {
       result = result.filter(task => task.priority === priorityFilter);
     }
     
-    // Assigned to filter
     if (assignedToFilter !== "all") {
       result = result.filter(task => task.assigned_to === assignedToFilter);
     }
@@ -131,7 +135,6 @@ const Tasks = () => {
       
       if (error) throw error;
       
-      // Remove from local state
       setTasks(tasks.filter(t => t.id !== taskToDelete.id));
       toast.success("Task deleted successfully");
     } catch (error: any) {
@@ -152,17 +155,14 @@ const Tasks = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <h1 className="text-2xl font-bold text-slate-800">Task List</h1>
         <CreateTaskDialog onTaskCreated={fetchTasks} />
       </div>
 
-      {/* Filters */}
       <Card className="border-none shadow-sm">
         <CardContent className="p-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-            {/* Search */}
             <div className="lg:col-span-2">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
@@ -175,7 +175,6 @@ const Tasks = () => {
               </div>
             </div>
             
-            {/* Status Filter */}
             <div>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger>
@@ -190,7 +189,6 @@ const Tasks = () => {
               </Select>
             </div>
             
-            {/* Priority Filter */}
             <div>
               <Select value={priorityFilter} onValueChange={setPriorityFilter}>
                 <SelectTrigger>
@@ -205,7 +203,6 @@ const Tasks = () => {
               </Select>
             </div>
             
-            {/* Assigned To Filter */}
             <div>
               <Select value={assignedToFilter} onValueChange={setAssignedToFilter}>
                 <SelectTrigger>
@@ -225,7 +222,6 @@ const Tasks = () => {
         </CardContent>
       </Card>
 
-      {/* Tasks Table */}
       <Card className="border-none shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
@@ -249,7 +245,7 @@ const Tasks = () => {
                     </td>
                     <td className="px-6 py-4">
                       <Badge variant="outline" className={getStatusBg(task.status)}>
-                        {task.status.replace('_', ' ')}
+                        {task.status?.replace('_', ' ')}
                       </Badge>
                     </td>
                     <td className="px-6 py-4">
@@ -313,7 +309,6 @@ const Tasks = () => {
         </div>
       </Card>
 
-      {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
