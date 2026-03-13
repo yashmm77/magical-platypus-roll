@@ -5,7 +5,6 @@ import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Team from "./pages/Team";
-import Dashboard from "./pages/Dashboard";
 
 const App = () => (
   <Router>
@@ -14,7 +13,6 @@ const App = () => (
       <Route path="/signup" element={<Signup />} />
       <Route path="/" element={<Layout><Index /></Layout>} />
       <Route path="/team" element={<Layout><Team /></Layout>} />
-      <Route path="/dashboard" element={<Layout><Dashboard /></Layout>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   </Router>
