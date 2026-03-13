@@ -42,10 +42,49 @@ export const useTasks = () => {
     },
   });
 
+  const updateTaskMutation = useMutation({
+    mutationFn: async ({ id, ...updates }: Partial<Task> & { id: string }) => {
+      const { data, error } = await supabase
+        .from("tasks")
+        .update(updates)
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      toast.success("Task updated successfully!");
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Failed to update task");
+    },
+  });
+
+  const deleteTaskMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("tasks").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      toast.success("Task deleted successfully!");
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Failed to delete task");
+    },
+  });
+
   return {
     tasks: tasksQuery.data || [],
     isLoading: tasksQuery.isLoading,
     createTask: createTaskMutation.mutate,
     isCreating: createTaskMutation.isPending,
+    updateTask: updateTaskMutation.mutate,
+    isUpdating: updateTaskMutation.isPending,
+    deleteTask: deleteTaskMutation.mutate,
+    isDeleting: deleteTaskMutation.isPending,
   };
 };
