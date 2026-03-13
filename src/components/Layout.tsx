@@ -1,15 +1,16 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { LayoutDashboard, CheckSquare, User, Settings, LogOut } from 'lucide-react';
+import { LayoutDashboard, CheckSquare, User, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
+import Logout from './Logout';
 
 interface LayoutProps {
   children: React.ReactNode;
 }
 
 const Layout = ({ children }: LayoutProps) => {
-  const { user, signOut, loading } = useAuth();
+  const { user, loading } = useAuth();
 
   if (loading) {
     return (
@@ -42,10 +43,7 @@ const Layout = ({ children }: LayoutProps) => {
           </Button>
         </nav>
         <div className="p-4 border-t border-slate-200 space-y-4">
-          <Button variant="ghost" className="w-full justify-start gap-3 text-rose-600 hover:text-rose-700 hover:bg-rose-50" onClick={() => signOut()}>
-            <LogOut className="w-5 h-5" />
-            Sign Out
-          </Button>
+          <Logout />
         </div>
       </aside>
 
