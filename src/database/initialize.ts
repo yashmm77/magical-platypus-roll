@@ -65,11 +65,47 @@ export const initializeDatabase = async () => {
         CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
         CREATE INDEX IF NOT EXISTS idx_tasks_priority ON tasks(priority);
         CREATE INDEX IF NOT EXISTS idx_tasks_created_at ON tasks(created_at);
+        CREATE INDEX IF NOT EXISTS idx_tasks_due_date ON tasks(due_date);
       `
     });
 
     if (indexesError) {
       console.error('Error creating indexes:', indexesError);
+    }
+
+    // Create task_summary view
+    const { error: summaryViewError } = await supabase.rpc('exec', {
+      sql: `
+        CREATE OR REPLACE VIEW task_summary AS
+        SELECT 
+          COUNT(*) as total_tasks,
+          COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed_tasks,
+          COUNT(CASE WHEN status IN ('todo', 'in_progress') THEN 1 END) as pending_tasks,
+          COUNT(CASE WHEN due_date < NOW() AND status != 'completed' THEN 1 END) as overdue_tasks
+        FROM tasks;
+      `
+    });
+
+    if (summaryViewError) {
+      console.error('Error creating task_summary view:', summaryViewError);
+    }
+
+    // Create tasks_due_today view
+    const { error: dueTodayViewError } = await supabase.rpc('exec', {
+      sql: `
+        CREATE OR REPLACE VIEW tasks_due_today AS
+        SELECT 
+          tasks.*,
+          profiles.full_name as assigned_to_name
+        FROM tasks
+        LEFT JOIN profiles ON tasks.assigned_to = profiles.id
+        WHERE DATE(tasks.due_date) = DATE(NOW())
+          AND tasks.status != 'completed';
+      `
+    });
+
+    if (dueTodayViewError) {
+      console.error('Error creating tasks_due_today view:', dueTodayViewError);
     }
 
     console.log('Database initialized successfully!');
