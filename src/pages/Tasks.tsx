@@ -28,29 +28,40 @@ const Tasks = () => {
   const [taskToDelete, setTaskToDelete] = useState<any>(null);
 
   // Fetch tasks
-  useEffect(() => {
-    fetchTasks();
-  }, []);
-
   const fetchTasks = async () => {
     try {
+      console.log("Fetching tasks...");
+      
+      // Fetch tasks with user information
       const { data, error } = await supabase
         .from("tasks")
         .select(`
           *,
-          assigned_user:profiles!tasks_assigned_to_fkey(full_name, email)
+          profiles!tasks_assigned_to_fkey(full_name, email)
         `)
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
-      setTasks(data);
-      setFilteredTasks(data);
+      if (error) {
+        console.error("Fetch error:", error);
+        throw error;
+      }
+      
+      console.log("Fetched tasks:", data);
+      setTasks(data || []);
+      setFilteredTasks(data || []);
     } catch (error: any) {
+      console.error("Error fetching tasks:", error);
       toast.error(error.message || "Failed to fetch tasks");
+      setTasks([]);
+      setFilteredTasks([]);
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchTasks();
+  }, []);
 
   // Apply filters
   useEffect(() => {
@@ -144,7 +155,7 @@ const Tasks = () => {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <h1 className="text-2xl font-bold text-slate-800">Task List</h1>
-        <CreateTaskDialog />
+        <CreateTaskDialog onTaskCreated={fetchTasks} />
       </div>
 
       {/* Filters */}
@@ -229,65 +240,70 @@ const Tasks = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredTasks.map((task) => (
-                <tr key={task.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="px-6 py-4 text-sm font-medium text-slate-900">{task.title}</td>
-                  <td className="px-6 py-4 text-sm text-slate-500">
-                    {task.assigned_user?.full_name || task.assigned_user?.email || "Unassigned"}
-                  </td>
-                  <td className="px-6 py-4">
-                    <Badge variant="outline" className={getStatusBg(task.status)}>
-                      {task.status.replace('_', ' ')}
-                    </Badge>
-                  </td>
-                  <td className="px-6 py-4">
-                    <Badge variant="outline" className={getPriorityBg(task.priority)}>
-                      {task.priority}
-                    </Badge>
-                  </td>
-                  <td className="px-6 py-4 text-sm">
-                    <div className={`flex items-center gap-1 ${isOverdue(task.due_date, task.status) ? 'text-rose-600 font-medium' : 'text-slate-500'}`}>
-                      <Calendar className="w-4 h-4" />
-                      {task.due_date ? new Date(task.due_date).toLocaleDateString() : "No date"}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-2">
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        className="text-slate-500 hover:text-indigo-600"
-                        onClick={() => navigate(`/tasks/${task.id}`)}
-                      >
-                        <Eye className="w-4 h-4" />
-                      </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        className="text-slate-500 hover:text-indigo-600"
-                        onClick={() => console.log("Edit task", task.id)}
-                      >
-                        <Pencil className="w-4 h-4" />
-                      </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        className="text-slate-500 hover:text-rose-600"
-                        onClick={() => handleDeleteClick(task)}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {filteredTasks.length === 0 && (
+              {filteredTasks.length > 0 ? (
+                filteredTasks.map((task) => (
+                  <tr key={task.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="px-6 py-4 text-sm font-medium text-slate-900">{task.title}</td>
+                    <td className="px-6 py-4 text-sm text-slate-500">
+                      {task.profiles?.full_name || task.profiles?.email || "Unassigned"}
+                    </td>
+                    <td className="px-6 py-4">
+                      <Badge variant="outline" className={getStatusBg(task.status)}>
+                        {task.status.replace('_', ' ')}
+                      </Badge>
+                    </td>
+                    <td className="px-6 py-4">
+                      <Badge variant="outline" className={getPriorityBg(task.priority)}>
+                        {task.priority}
+                      </Badge>
+                    </td>
+                    <td className="px-6 py-4 text-sm">
+                      <div className={`flex items-center gap-1 ${isOverdue(task.due_date, task.status) ? 'text-rose-600 font-medium' : 'text-slate-500'}`}>
+                        <Calendar className="w-4 h-4" />
+                        {task.due_date ? new Date(task.due_date).toLocaleDateString() : "No date"}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          className="text-slate-500 hover:text-indigo-600"
+                          onClick={() => navigate(`/tasks/${task.id}`)}
+                        >
+                          <Eye className="w-4 h-4" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          className="text-slate-500 hover:text-indigo-600"
+                          onClick={() => console.log("Edit task", task.id)}
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          className="text-slate-500 hover:text-rose-600"
+                          onClick={() => handleDeleteClick(task)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              ) : (
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
                     <div className="flex flex-col items-center justify-center">
                       <Calendar className="w-12 h-12 text-slate-300 mb-4" />
                       <p className="text-lg">No tasks found</p>
-                      <p className="text-sm mt-1">Try adjusting your filters or create a new task</p>
+                      <p className="text-sm mt-1">
+                        {tasks.length === 0 
+                          ? "No tasks in the database. Create your first task!" 
+                          : "Try adjusting your filters"}
+                      </p>
                     </div>
                   </td>
                 </tr>

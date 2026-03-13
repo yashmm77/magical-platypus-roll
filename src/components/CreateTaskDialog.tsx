@@ -7,12 +7,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Loader2 } from "lucide-react";
 import { useUsers } from "@/hooks/useUsers";
-import { useTasks } from "@/hooks/useTasks";
+import { supabase } from "@/lib/supabase";
+import { toast } from "sonner";
 
-export const CreateTaskDialog = () => {
+interface CreateTaskDialogProps {
+  onTaskCreated?: () => void;
+}
+
+export const CreateTaskDialog = ({ onTaskCreated }: CreateTaskDialogProps) => {
   const [open, setOpen] = useState(false);
   const { data: users } = useUsers();
-  const { createTask, isCreating } = useTasks();
+  const [isCreating, setIsCreating] = useState(false);
 
   const [formData, setFormData] = useState({
     title: "",
@@ -21,23 +26,38 @@ export const CreateTaskDialog = () => {
     assigned_to: "",
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    createTask(
-      {
-        title: formData.title,
-        description: formData.description,
-        priority: formData.priority,
-        assigned_to: formData.assigned_to || null,
-        status: "todo",
-      },
-      {
-        onSuccess: () => {
-          setOpen(false);
-          setFormData({ title: "", description: "", priority: "medium", assigned_to: "" });
-        },
+    setIsCreating(true);
+
+    try {
+      const { data, error } = await supabase
+        .from("tasks")
+        .insert([{
+          title: formData.title,
+          description: formData.description,
+          priority: formData.priority,
+          assigned_to: formData.assigned_to || null,
+          status: "todo",
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      toast.success("Task created successfully!");
+      setOpen(false);
+      setFormData({ title: "", description: "", priority: "medium", assigned_to: "" });
+      
+      // Call the callback to refresh tasks
+      if (onTaskCreated) {
+        onTaskCreated();
       }
-    );
+    } catch (error: any) {
+      toast.error(error.message || "Failed to create task");
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   return (
@@ -100,6 +120,7 @@ export const CreateTaskDialog = () => {
                     <SelectValue placeholder="Select member" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="">Unassigned</SelectItem>
                     {users?.map((user) => (
                       <SelectItem key={user.id} value={user.id}>
                         {user.full_name || user.email}
