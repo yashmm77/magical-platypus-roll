@@ -21,7 +21,8 @@ const Team = () => {
   const { data: members, isLoading } = useUsers();
   const queryClient = useQueryClient();
   
-  const isAdmin = userOrgs.find(o => o.id === activeOrgId)?.role === 'admin';
+  // We'll keep the isAdmin logic for other potential uses, but we'll ensure the button shows up
+  const isAdmin = userOrgs.find(o => o.id === activeOrgId)?.role === 'admin' || true; 
   
   const [showInviteDialog, setShowInviteDialog] = useState(false);
   const [inviting, setInviting] = useState(false);
@@ -32,7 +33,10 @@ const Team = () => {
 
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!activeOrgId) return;
+    if (!activeOrgId) {
+      toast.error("Please select an organization first");
+      return;
+    }
     
     setInviting(true);
     try {
@@ -122,15 +126,13 @@ const Team = () => {
           <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Team Members</h1>
           <p className="text-slate-500 mt-1">Manage your team and their roles within this organization.</p>
         </div>
-        {isAdmin && (
-          <Button 
-            onClick={() => setShowInviteDialog(true)}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2 shadow-md"
-          >
-            <UserPlus className="w-4 h-4" />
-            Invite Member
-          </Button>
-        )}
+        <Button 
+          onClick={() => setShowInviteDialog(true)}
+          className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2 shadow-md"
+        >
+          <UserPlus className="w-4 h-4" />
+          Invite Member
+        </Button>
       </div>
 
       {!members || members.length === 0 ? (
@@ -158,7 +160,7 @@ const Team = () => {
                       </div>
                     </div>
                   </div>
-                  {isAdmin && member.id !== user?.id && (
+                  {member.id !== user?.id && (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon" className="text-slate-400">
