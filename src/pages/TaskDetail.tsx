@@ -16,11 +16,13 @@ import {
   MessageSquare, 
   History, 
   ArrowLeft,
-  Send
+  Send,
+  Pencil
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { Task, CommentWithProfile, ActivityLog } from "@/types";
+import { TaskModal } from "@/components/TaskModal";
 
 const TaskDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -33,6 +35,7 @@ const TaskDetail = () => {
   const [loading, setLoading] = useState(true);
   const [commentText, setCommentText] = useState("");
   const [submittingComment, setSubmittingComment] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
 
   const fetchTask = useCallback(async () => {
     if (!id) return;
@@ -164,14 +167,23 @@ const TaskDetail = () => {
 
   return (
     <div className="max-w-5xl mx-auto space-y-8">
-      <Button 
-        variant="ghost" 
-        onClick={() => navigate(-1)} 
-        className="gap-2 text-slate-500 hover:text-indigo-600"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        Back
-      </Button>
+      <div className="flex items-center justify-between">
+        <Button 
+          variant="ghost" 
+          onClick={() => navigate(-1)} 
+          className="gap-2 text-slate-500 hover:text-indigo-600"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back
+        </Button>
+        <Button 
+          onClick={() => setEditModalOpen(true)}
+          className="bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 gap-2"
+        >
+          <Pencil className="w-4 h-4" />
+          Edit Task
+        </Button>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-8">
@@ -310,6 +322,13 @@ const TaskDetail = () => {
           </Card>
         </div>
       </div>
+
+      <TaskModal 
+        open={editModalOpen} 
+        onOpenChange={setEditModalOpen} 
+        task={task} 
+        onSuccess={fetchTask} 
+      />
     </div>
   );
 };

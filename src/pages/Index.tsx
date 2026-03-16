@@ -5,13 +5,14 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, CheckSquare, Clock, AlertCircle, ListTodo, BarChart3, RefreshCw } from "lucide-react";
+import { Loader2, CheckSquare, Clock, AlertCircle, ListTodo, BarChart3, RefreshCw, User } from "lucide-react";
 import { CreateTaskDialog } from "@/components/CreateTaskDialog";
 import { useAuth } from "@/hooks/useAuth";
 import { useTasks } from "@/hooks/useTasks";
 import { useUsers } from "@/hooks/useUsers";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -36,6 +37,11 @@ const Index = () => {
   useEffect(() => {
     fetchData();
   }, [tasks]);
+
+  const myTasks = useMemo(() => {
+    if (!user) return [];
+    return tasks.filter(t => t.assigned_to === user.id);
+  }, [tasks, user]);
 
   const statusChartData = useMemo(() => {
     if (!summary) return [];
@@ -140,44 +146,73 @@ const Index = () => {
         </Card>
 
         <div className="space-y-4">
-          <h2 className="text-xl font-semibold text-slate-800 flex items-center gap-2">
-            <ListTodo className="w-5 h-5 text-indigo-500" />
-            Recent Tasks
-          </h2>
-          <div className="space-y-3 text-left max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-            {tasks.length === 0 ? (
-              <p className="text-center text-slate-400 py-8">No tasks yet. Create one above!</p>
-            ) : (
-              tasks.map((task) => (
-                <div 
-                  key={task.id} 
-                  onClick={() => navigate(`/tasks/${task.id}`)}
-                  className="bg-white rounded-xl shadow-sm p-4 flex items-center justify-between border border-slate-100 hover:border-indigo-200 hover:shadow-md transition-all cursor-pointer group"
-                >
-                  <div>
-                    <p className="font-semibold text-slate-800 group-hover:text-indigo-600 transition-colors">{task.title}</p>
-                    {task.description && <p className="text-sm text-slate-500 mt-1 line-clamp-1">{task.description}</p>}
+          <Tabs defaultValue="recent" className="w-full">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-slate-800 flex items-center gap-2">
+                <ListTodo className="w-5 h-5 text-indigo-500" />
+                Tasks
+              </h2>
+              <TabsList className="bg-slate-100">
+                <TabsTrigger value="recent">Recent</TabsTrigger>
+                <TabsTrigger value="mine">My Tasks</TabsTrigger>
+              </TabsList>
+            </div>
+            
+            <TabsContent value="recent" className="mt-0">
+              <div className="space-y-3 text-left max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                {tasks.length === 0 ? (
+                  <p className="text-center text-slate-400 py-8">No tasks yet. Create one above!</p>
+                ) : (
+                  tasks.map((task) => (
+                    <TaskCard key={task.id} task={task} onClick={() => navigate(`/tasks/${task.id}`)} />
+                  ))
+                )}
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="mine" className="mt-0">
+              <div className="space-y-3 text-left max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                {myTasks.length === 0 ? (
+                  <div className="text-center py-12 bg-white rounded-xl border border-dashed border-slate-200">
+                    <User className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                    <p className="text-slate-500">No tasks assigned to you yet.</p>
                   </div>
-                  <div className="flex gap-2">
-                    <Badge variant="outline" className={`text-[10px] uppercase tracking-wider ${
-                      task.priority === 'high' ? 'bg-rose-50 text-rose-700 border-rose-100' :
-                      task.priority === 'medium' ? 'bg-amber-50 text-amber-700 border-amber-100' :
-                      'bg-emerald-50 text-emerald-700 border-emerald-100'
-                    }`}>
-                      {task.priority}
-                    </Badge>
-                    <Badge variant="secondary" className="text-[10px] uppercase tracking-wider bg-slate-100 text-slate-600 border-none">
-                      {task.status.replace('_', ' ')}
-                    </Badge>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
+                ) : (
+                  myTasks.map((task) => (
+                    <TaskCard key={task.id} task={task} onClick={() => navigate(`/tasks/${task.id}`)} />
+                  ))
+                )}
+              </div>
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
     </div>
   );
 };
+
+const TaskCard = ({ task, onClick }: { task: any, onClick: () => void }) => (
+  <div 
+    onClick={onClick}
+    className="bg-white rounded-xl shadow-sm p-4 flex items-center justify-between border border-slate-100 hover:border-indigo-200 hover:shadow-md transition-all cursor-pointer group"
+  >
+    <div>
+      <p className="font-semibold text-slate-800 group-hover:text-indigo-600 transition-colors">{task.title}</p>
+      {task.description && <p className="text-sm text-slate-500 mt-1 line-clamp-1">{task.description}</p>}
+    </div>
+    <div className="flex gap-2">
+      <Badge variant="outline" className={`text-[10px] uppercase tracking-wider ${
+        task.priority === 'high' ? 'bg-rose-50 text-rose-700 border-rose-100' :
+        task.priority === 'medium' ? 'bg-amber-50 text-amber-700 border-amber-100' :
+        'bg-emerald-50 text-emerald-700 border-emerald-100'
+      }`}>
+        {task.priority}
+      </Badge>
+      <Badge variant="secondary" className="text-[10px] uppercase tracking-wider bg-slate-100 text-slate-600 border-none">
+        {task.status.replace('_', ' ')}
+      </Badge>
+    </div>
+  </div>
+);
 
 export default Index;
