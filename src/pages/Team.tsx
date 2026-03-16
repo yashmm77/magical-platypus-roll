@@ -17,14 +17,12 @@ import { format } from "date-fns";
 import { supabase } from "@/lib/supabase";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
-import { useAuth } from "@/hooks/useAuth";
 
 const Team = () => {
   const navigate = useNavigate();
-  const { user: currentUser } = useAuth();
   const queryClient = useQueryClient();
   const { data: users, isLoading, error } = useUsers();
-  const { isAdmin, refreshRole } = useRole();
+  const { isAdmin } = useRole();
   
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
@@ -40,45 +38,30 @@ const Team = () => {
     e.preventDefault();
     if (!isAdmin) return;
     setInviting(true);
-    try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      toast.success(`Invitation sent to ${inviteEmail}`);
-      setInviteEmail("");
-      setInviteOpen(false);
-    } catch (err: any) {
-      toast.error(err.message || "Failed to send invitation");
-    } finally {
-      setInviting(false);
-    }
+    // Simulate invitation logic
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    toast.success(`Invitation sent to ${inviteEmail}`);
+    setInviteEmail("");
+    setInviteOpen(false);
+    setInviting(false);
   };
 
   const handleUpdateRole = async (userId: string, newRole: 'admin' | 'member' | 'viewer') => {
-    if (!isAdmin) {
-      toast.error("Only admins can change roles");
-      return;
-    }
-    
+    if (!isAdmin) return;
     setUpdatingRoleId(userId);
     try {
       const { error } = await supabase
         .from('profiles')
-        .update({ 
-          role: newRole,
-          updated_at: new Date().toISOString() 
-        })
+        .update({ role: newRole })
         .eq('id', userId);
 
       if (error) throw error;
       
       toast.success(`Role updated to ${newRole}`);
+      // Force a refetch of the users list
       await queryClient.invalidateQueries({ queryKey: ["users"] });
-      
-      if (userId === currentUser?.id) {
-        await refreshRole();
-      }
     } catch (error: any) {
-      console.error("Error updating role:", error);
-      toast.error(error.message || "Failed to update role in database");
+      toast.error(error.message || "Failed to update role");
     } finally {
       setUpdatingRoleId(null);
     }
@@ -120,7 +103,7 @@ const Team = () => {
         <AlertCircle className="w-12 h-12 text-rose-500" />
         <h2 className="text-xl font-bold text-slate-900 dark:text-white">Failed to load team</h2>
         <p className="text-slate-500 max-w-md">
-          There was an error fetching the team members from the database.
+          There was an error fetching the team members.
         </p>
         <Button onClick={() => queryClient.invalidateQueries({ queryKey: ["users"] })}>
           Try Again
@@ -134,7 +117,7 @@ const Team = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Team Members</h1>
-          <p className="text-slate-500 mt-1">Manage your team and their access levels.</p>
+          <p className="text-slate-500 mt-1">View your team and their roles.</p>
         </div>
         {isAdmin && (
           <Button 
@@ -186,22 +169,13 @@ const Team = () => {
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <div className="px-2 py-1.5 text-xs font-semibold text-slate-500">Change Role</div>
-                      <DropdownMenuItem 
-                        onClick={() => handleUpdateRole(user.id, 'admin')} 
-                        className={cn("gap-2", user.role === 'admin' && "bg-slate-50 dark:bg-slate-800")}
-                      >
+                      <DropdownMenuItem onClick={() => handleUpdateRole(user.id, 'admin')} className="gap-2">
                         <Shield className="w-4 h-4 text-rose-500" /> Admin {user.role === 'admin' && <Check className="w-3 h-3 ml-auto" />}
                       </DropdownMenuItem>
-                      <DropdownMenuItem 
-                        onClick={() => handleUpdateRole(user.id, 'member')} 
-                        className={cn("gap-2", user.role === 'member' && "bg-slate-50 dark:bg-slate-800")}
-                      >
+                      <DropdownMenuItem onClick={() => handleUpdateRole(user.id, 'member')} className="gap-2">
                         <Users className="w-4 h-4 text-indigo-500" /> Member {user.role === 'member' && <Check className="w-3 h-3 ml-auto" />}
                       </DropdownMenuItem>
-                      <DropdownMenuItem 
-                        onClick={() => handleUpdateRole(user.id, 'viewer')} 
-                        className={cn("gap-2", user.role === 'viewer' && "bg-slate-50 dark:bg-slate-800")}
-                      >
+                      <DropdownMenuItem onClick={() => handleUpdateRole(user.id, 'viewer')} className="gap-2">
                         <Shield className="w-4 h-4 text-slate-500" /> Viewer {user.role === 'viewer' && <Check className="w-3 h-3 ml-auto" />}
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
