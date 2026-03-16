@@ -81,10 +81,10 @@ const Kanban = () => {
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case "high": return "text-rose-600 bg-rose-50 border-rose-100";
-      case "medium": return "text-amber-600 bg-amber-50 border-amber-100";
-      case "low": return "text-emerald-600 bg-emerald-50 border-emerald-100";
-      default: return "text-slate-600 bg-slate-50 border-slate-100";
+      case "high": return "text-rose-600 bg-rose-50 border-rose-100 dark:bg-rose-900/20 dark:text-rose-400 dark:border-rose-900/30";
+      case "medium": return "text-amber-600 bg-amber-50 border-amber-100 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-900/30";
+      case "low": return "text-emerald-600 bg-emerald-50 border-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-900/30";
+      default: return "text-slate-600 bg-slate-50 border-slate-100 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700";
     }
   };
 
@@ -105,10 +105,10 @@ const Kanban = () => {
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold text-slate-900">Kanban Board</h1>
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Kanban Board</h1>
         <div className="flex items-center gap-3">
           <Select value={assigneeFilter} onValueChange={setAssigneeFilter}>
-            <SelectTrigger className="w-[180px] bg-white">
+            <SelectTrigger className="w-[180px] bg-white dark:bg-slate-900">
               <SelectValue placeholder="Filter by Assignee" />
             </SelectTrigger>
             <SelectContent>
@@ -133,11 +133,11 @@ const Kanban = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-[calc(100vh-220px)]">
         {COLUMNS.map((column) => (
-          <div key={column.id} className="flex flex-col gap-4 bg-slate-50/50 rounded-xl p-4 border border-slate-100">
+          <div key={column.id} className="flex flex-col gap-4 bg-slate-50/50 dark:bg-slate-900/50 rounded-xl p-4 border border-slate-100 dark:border-slate-800">
             <div className="flex items-center justify-between px-2">
-              <h2 className="font-semibold text-slate-700 flex items-center gap-2">
+              <h2 className="font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
                 {column.title}
-                <Badge variant="secondary" className="bg-white text-slate-500 border-slate-200">
+                <Badge variant="secondary" className="bg-white dark:bg-slate-800 text-slate-500 border-slate-200 dark:border-slate-700">
                   {filteredTasks.filter(t => t.status === column.id).length}
                 </Badge>
               </h2>
@@ -149,11 +149,11 @@ const Kanban = () => {
                 .map((task) => (
                   <Card 
                     key={task.id} 
-                    className="border-none shadow-sm bg-white hover:shadow-md transition-all group relative"
+                    className="border-none shadow-sm bg-white dark:bg-slate-900 hover:shadow-md transition-all group relative"
                   >
                     <CardContent className="p-4 space-y-3">
                       <div className="flex items-start justify-between gap-2">
-                        <h3 className="font-medium text-slate-900 leading-tight group-hover:text-indigo-600 transition-colors cursor-pointer" onClick={() => navigate(`/tasks/${task.id}`)}>
+                        <h3 className="font-medium text-slate-900 dark:text-slate-100 leading-tight group-hover:text-indigo-600 transition-colors cursor-pointer" onClick={() => navigate(`/tasks/${task.id}`)}>
                           {task.title}
                         </h3>
                         <DropdownMenu>
@@ -169,7 +169,7 @@ const Kanban = () => {
                             <DropdownMenuItem onClick={() => { setSelectedTask(task); setModalOpen(true); }}>
                               <Plus className="w-4 h-4 mr-2 rotate-45" /> Edit Task
                             </DropdownMenuItem>
-                            <div className="h-px bg-slate-100 my-1" />
+                            <div className="h-px bg-slate-100 dark:bg-slate-800 my-1" />
                             <div className="px-2 py-1.5 text-xs font-semibold text-slate-500">Move to:</div>
                             {COLUMNS.filter(c => c.id !== task.status).map(c => (
                               <DropdownMenuItem key={c.id} onClick={() => handleStatusChange(task.id, c.id, task.title)}>
@@ -184,7 +184,7 @@ const Kanban = () => {
                         <p className="text-xs text-slate-500 line-clamp-2">{task.description}</p>
                       )}
 
-                      <div className="flex items-center justify-between pt-2 border-t border-slate-50">
+                      <div className="flex items-center justify-between pt-2 border-t border-slate-50 dark:border-slate-800">
                         <div className="flex items-center gap-3">
                           <div className="flex items-center gap-1 text-[11px] text-slate-400">
                             <Calendar className="w-3 h-3" />

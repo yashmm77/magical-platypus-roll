@@ -43,7 +43,7 @@ export const GlobalSearch = () => {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <Input
               placeholder="Search tasks..."
-              className="pl-10 bg-slate-50 border-slate-200 focus:ring-indigo-500 w-full"
+              className="pl-10 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 focus:ring-indigo-500 w-full"
               value={query}
               onChange={(e) => {
                 setQuery(e.target.value);

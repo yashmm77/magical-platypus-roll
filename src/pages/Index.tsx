@@ -83,7 +83,7 @@ const Index = () => {
     <div className="space-y-8 max-w-7xl mx-auto">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">Dashboard</h1>
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Dashboard</h1>
           <p className="text-slate-500 mt-1">Welcome back, {user?.email?.split('@')[0]}</p>
         </div>
         <div className="flex items-center gap-2">
@@ -95,40 +95,40 @@ const Index = () => {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="border-none shadow-sm bg-white">
+        <Card className="border-none shadow-sm bg-white dark:bg-slate-900">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
             <CardTitle className="text-sm font-medium text-slate-500">Total Tasks</CardTitle>
             <ListTodo className="w-4 h-4 text-indigo-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-slate-900">{tasks.length}</div>
+            <div className="text-2xl font-bold text-slate-900 dark:text-white">{tasks.length}</div>
           </CardContent>
         </Card>
-        <Card className="border-none shadow-sm bg-white">
+        <Card className="border-none shadow-sm bg-white dark:bg-slate-900">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
             <CardTitle className="text-sm font-medium text-slate-500">Completed</CardTitle>
             <CheckSquare className="w-4 h-4 text-emerald-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-slate-900">{summary?.completed_tasks || 0}</div>
+            <div className="text-2xl font-bold text-slate-900 dark:text-white">{summary?.completed_tasks || 0}</div>
           </CardContent>
         </Card>
-        <Card className="border-none shadow-sm bg-white">
+        <Card className="border-none shadow-sm bg-white dark:bg-slate-900">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
             <CardTitle className="text-sm font-medium text-slate-500">Pending</CardTitle>
             <Clock className="w-4 h-4 text-amber-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-slate-900">{summary?.pending_tasks || 0}</div>
+            <div className="text-2xl font-bold text-slate-900 dark:text-white">{summary?.pending_tasks || 0}</div>
           </CardContent>
         </Card>
-        <Card className="border-none shadow-sm bg-white">
+        <Card className="border-none shadow-sm bg-white dark:bg-slate-900">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
             <CardTitle className="text-sm font-medium text-slate-500">Overdue</CardTitle>
             <AlertCircle className="w-4 h-4 text-rose-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-slate-900">{summary?.overdue_tasks || 0}</div>
+            <div className="text-2xl font-bold text-slate-900 dark:text-white">{summary?.overdue_tasks || 0}</div>
           </CardContent>
         </Card>
       </div>
@@ -136,7 +136,7 @@ const Index = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-8">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card className="border-none shadow-sm bg-white p-6">
+            <Card className="border-none shadow-sm bg-white dark:bg-slate-900 p-6">
               <CardHeader className="px-0 pt-0">
                 <CardTitle className="text-lg font-semibold flex items-center gap-2">
                   <BarChart3 className="w-5 h-5 text-indigo-500" />
@@ -166,7 +166,7 @@ const Index = () => {
               </div>
             </Card>
 
-            <Card className="border-none shadow-sm bg-white p-6">
+            <Card className="border-none shadow-sm bg-white dark:bg-slate-900 p-6">
               <CardHeader className="px-0 pt-0">
                 <CardTitle className="text-lg font-semibold flex items-center gap-2">
                   <BarChart3 className="w-5 h-5 text-indigo-500" />
@@ -194,11 +194,11 @@ const Index = () => {
           <div className="space-y-4">
             <Tabs defaultValue="recent" className="w-full">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold text-slate-800 flex items-center gap-2">
+                <h2 className="text-xl font-semibold text-slate-800 dark:text-white flex items-center gap-2">
                   <ListTodo className="w-5 h-5 text-indigo-500" />
                   Tasks
                 </h2>
-                <TabsList className="bg-slate-100">
+                <TabsList className="bg-slate-100 dark:bg-slate-800">
                   <TabsTrigger value="recent">Recent</TabsTrigger>
                   <TabsTrigger value="mine">My Tasks</TabsTrigger>
                 </TabsList>
@@ -219,7 +219,7 @@ const Index = () => {
               <TabsContent value="mine" className="mt-0">
                 <div className="space-y-3 text-left max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
                   {myTasks.length === 0 ? (
-                    <div className="text-center py-12 bg-white rounded-xl border border-dashed border-slate-200">
+                    <div className="text-center py-12 bg-white dark:bg-slate-900 rounded-xl border border-dashed border-slate-200 dark:border-slate-800">
                       <User className="w-12 h-12 text-slate-300 mx-auto mb-4" />
                       <p className="text-slate-500">No tasks assigned to you yet.</p>
                     </div>
@@ -235,11 +235,11 @@ const Index = () => {
         </div>
 
         <div className="space-y-4">
-          <h2 className="text-xl font-semibold text-slate-800 flex items-center gap-2">
+          <h2 className="text-xl font-semibold text-slate-800 dark:text-white flex items-center gap-2">
             <History className="w-5 h-5 text-indigo-500" />
             Recent Activity
           </h2>
-          <Card className="border-none shadow-sm bg-white">
+          <Card className="border-none shadow-sm bg-white dark:bg-slate-900">
             <CardContent className="p-4">
               <div className="space-y-6">
                 {activities.length === 0 ? (
@@ -248,13 +248,13 @@ const Index = () => {
                   activities.map((activity, idx) => (
                     <div key={activity.id} className="relative pl-6 pb-6 last:pb-0">
                       {idx !== activities.length - 1 && (
-                        <div className="absolute left-[7px] top-[20px] bottom-0 w-[2px] bg-slate-100" />
+                        <div className="absolute left-[7px] top-[20px] bottom-0 w-[2px] bg-slate-100 dark:bg-slate-800" />
                       )}
-                      <div className="absolute left-0 top-[6px] w-4 h-4 rounded-full bg-indigo-100 border-2 border-white flex items-center justify-center">
+                      <div className="absolute left-0 top-[6px] w-4 h-4 rounded-full bg-indigo-100 dark:bg-indigo-900/30 border-2 border-white dark:border-slate-900 flex items-center justify-center">
                         <div className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
                       </div>
                       <div>
-                        <p className="text-sm text-slate-800 font-medium leading-tight">{activity.action}</p>
+                        <p className="text-sm text-slate-800 dark:text-slate-200 font-medium leading-tight">{activity.action}</p>
                         <div className="flex items-center gap-2 mt-1">
                           <span className="text-[10px] text-slate-400 font-medium uppercase">
                             {activity.profiles?.full_name || "System"}
@@ -271,7 +271,7 @@ const Index = () => {
               </div>
               <Button 
                 variant="ghost" 
-                className="w-full mt-4 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 text-xs"
+                className="w-full mt-4 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-900/10 text-xs"
                 onClick={() => navigate("/tasks")}
               >
                 View All Tasks
@@ -287,21 +287,21 @@ const Index = () => {
 const TaskCard = ({ task, onClick }: { task: any, onClick: () => void }) => (
   <div 
     onClick={onClick}
-    className="bg-white rounded-xl shadow-sm p-4 flex items-center justify-between border border-slate-100 hover:border-indigo-200 hover:shadow-md transition-all cursor-pointer group"
+    className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4 flex items-center justify-between border border-slate-100 dark:border-slate-800 hover:border-indigo-200 dark:hover:border-indigo-900 hover:shadow-md transition-all cursor-pointer group"
   >
     <div>
-      <p className="font-semibold text-slate-800 group-hover:text-indigo-600 transition-colors">{task.title}</p>
+      <p className="font-semibold text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 transition-colors">{task.title}</p>
       {task.description && <p className="text-sm text-slate-500 mt-1 line-clamp-1">{task.description}</p>}
     </div>
     <div className="flex gap-2">
       <Badge variant="outline" className={`text-[10px] uppercase tracking-wider ${
-        task.priority === 'high' ? 'bg-rose-50 text-rose-700 border-rose-100' :
-        task.priority === 'medium' ? 'bg-amber-50 text-amber-700 border-amber-100' :
-        'bg-emerald-50 text-emerald-700 border-emerald-100'
+        task.priority === 'high' ? 'bg-rose-50 text-rose-700 border-rose-100 dark:bg-rose-900/20 dark:text-rose-400 dark:border-rose-900/30' :
+        task.priority === 'medium' ? 'bg-amber-50 text-amber-700 border-amber-100 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-900/30' :
+        'bg-emerald-50 text-emerald-700 border-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-900/30'
       }`}>
         {task.priority}
       </Badge>
-      <Badge variant="secondary" className="text-[10px] uppercase tracking-wider bg-slate-100 text-slate-600 border-none">
+      <Badge variant="secondary" className="text-[10px] uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-none">
         {task.status.replace('_', ' ')}
       </Badge>
     </div>
