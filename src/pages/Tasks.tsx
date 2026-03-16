@@ -23,8 +23,6 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { useTasks } from "@/hooks/useTasks";
-import { useRole } from "@/hooks/useRole";
-import { useAuth } from "@/hooks/useAuth";
 import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
 import { TaskModal } from "@/components/TaskModal";
 import { 
@@ -38,8 +36,6 @@ import { Task } from "@/types";
 
 const Tasks = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const { role, canEdit, isAdmin } = useRole();
   const { tasks, isLoading, deleteTask, isDeleting } = useTasks();
   const [statusFilter, setStatusFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
@@ -52,16 +48,11 @@ const Tasks = () => {
 
   const filteredTasks = useMemo(() => {
     return tasks.filter(task => {
-      // Role-based filtering: Members only see their own tasks
-      if (role === 'member' && task.assigned_to !== user?.id && task.created_by !== user?.id) {
-        return false;
-      }
-
       const matchesStatus = statusFilter === "all" || task.status === statusFilter;
       const matchesPriority = priorityFilter === "all" || task.priority === priorityFilter;
       return matchesStatus && matchesPriority;
     });
-  }, [tasks, statusFilter, priorityFilter, role, user]);
+  }, [tasks, statusFilter, priorityFilter]);
 
   const sortedTasks = useMemo(() => {
     const result = [...filteredTasks];
@@ -205,28 +196,24 @@ const Tasks = () => {
                         >
                           <Eye className="w-4 h-4" />
                         </Button>
-                        {canEdit && (
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            onClick={() => handleEditTask(task)}
-                            className="text-amber-600 hover:text-amber-700 hover:bg-amber-50 h-8 w-8"
-                            title="Edit Task"
-                          >
-                            <Pencil className="w-4 h-4" />
-                          </Button>
-                        )}
-                        {isAdmin && (
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            onClick={() => setDeleteId(task.id)}
-                            className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-                            title="Delete Task"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        )}
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={() => handleEditTask(task)}
+                          className="text-amber-600 hover:text-amber-700 hover:bg-amber-50 h-8 w-8"
+                          title="Edit Task"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={() => setDeleteId(task.id)}
+                          className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                          title="Delete Task"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>

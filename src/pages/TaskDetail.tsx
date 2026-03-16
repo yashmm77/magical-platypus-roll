@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
-import { useRole } from "@/hooks/useRole";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -32,7 +31,6 @@ import { logActivity } from "@/utils/activity";
 const TaskDetail = () => {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
-  const { canEdit, isAdmin } = useRole();
   const navigate = useNavigate();
   
   const [task, setTask] = useState<(Task & { assigned_to_name?: string; created_by_name?: string }) | null>(null);
@@ -193,7 +191,7 @@ const TaskDetail = () => {
   };
 
   const handleDeleteTask = async () => {
-    if (!id || !task || !isAdmin) return;
+    if (!id || !task) return;
     setDeleting(true);
     try {
       await logActivity(id, `Deleted task: ${task.title}`);
@@ -265,25 +263,21 @@ const TaskDetail = () => {
           Back
         </Button>
         <div className="flex items-center gap-2">
-          {isAdmin && (
-            <Button 
-              variant="ghost"
-              onClick={() => setDeleteDialogOpen(true)}
-              className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-900/20 gap-2"
-            >
-              <Trash2 className="w-4 h-4" />
-              Delete
-            </Button>
-          )}
-          {canEdit && (
-            <Button 
-              onClick={() => setEditModalOpen(true)}
-              className="bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 gap-2"
-            >
-              <Pencil className="w-4 h-4" />
-              Edit Task
-            </Button>
-          )}
+          <Button 
+            variant="ghost"
+            onClick={() => setDeleteDialogOpen(true)}
+            className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-900/20 gap-2"
+          >
+            <Trash2 className="w-4 h-4" />
+            Delete
+          </Button>
+          <Button 
+            onClick={() => setEditModalOpen(true)}
+            className="bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 gap-2"
+          >
+            <Pencil className="w-4 h-4" />
+            Edit Task
+          </Button>
         </div>
       </div>
 

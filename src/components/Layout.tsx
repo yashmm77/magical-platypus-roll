@@ -5,7 +5,6 @@ import { Link, useLocation } from 'react-router-dom';
 import { LayoutDashboard, CheckSquare, User, Settings, Trello, List, Calendar, Menu, BarChart3, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
-import { useRole } from '@/hooks/useRole';
 import { supabase } from '@/lib/supabase';
 import Logout from './Logout';
 import { GlobalSearch } from './GlobalSearch';
@@ -22,15 +21,18 @@ interface LayoutProps {
 
 const Layout = ({ children }: LayoutProps) => {
   const { user, loading: authLoading } = useAuth();
-  const { isAdmin, canEdit, isViewer, isLoading: roleLoading } = useRole();
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [profile, setProfile] = useState<any>(null);
+  const [profileLoading, setProfileLoading] = useState(true);
   const contentRef = React.useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const fetchProfile = async () => {
-      if (!user) return;
+      if (!user) {
+        setProfileLoading(false);
+        return;
+      }
       
       try {
         const { data, error } = await supabase
@@ -42,19 +44,22 @@ const Layout = ({ children }: LayoutProps) => {
         if (!error) setProfile(data);
       } catch (err) {
         console.error("Error fetching profile:", err);
+      } finally {
+        setProfileLoading(false);
       }
     };
 
     fetchProfile();
   }, [user]);
 
+  // Reset scroll position on route change
   useEffect(() => {
     if (contentRef.current) {
       contentRef.current.scrollTo(0, 0);
     }
   }, [location.pathname]);
 
-  if (authLoading || roleLoading) {
+  if (authLoading) {
     return (
       <div className="h-screen w-full flex items-center justify-center bg-slate-50 dark:bg-slate-950">
         <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
@@ -130,13 +135,17 @@ const Layout = ({ children }: LayoutProps) => {
 
   return (
     <div className="h-screen flex overflow-hidden bg-slate-50 dark:bg-slate-950">
+      {/* Desktop Sidebar */}
       <aside className="w-64 border-r border-slate-200 dark:border-slate-800 hidden lg:flex flex-col shrink-0">
         <SidebarContent />
       </aside>
 
+      {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0 relative">
+        {/* Header */}
         <header className="h-16 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-4 md:px-8 shrink-0 z-30">
           <div className="flex items-center gap-4 flex-1">
+            {/* Mobile Menu Trigger */}
             <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
               <SheetTrigger asChild>
                 <Button variant="ghost" size="icon" className="lg:hidden text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">
@@ -161,7 +170,7 @@ const Layout = ({ children }: LayoutProps) => {
           </div>
           
           <div className="flex items-center gap-2 md:gap-4">
-            {!isViewer && <CreateTaskDialog />}
+            <CreateTaskDialog />
             <div className="flex items-center gap-1 border-l border-slate-200 dark:border-slate-800 pl-2 md:pl-4">
               <Notifications />
               <ThemeToggle />
@@ -187,10 +196,12 @@ const Layout = ({ children }: LayoutProps) => {
           </div>
         </header>
 
+        {/* Mobile Search (Visible only on small screens) */}
         <div className="p-3 sm:hidden bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shrink-0">
           <GlobalSearch />
         </div>
 
+        {/* Page Content Wrapper */}
         <div 
           ref={contentRef}
           className="flex-1 overflow-y-auto overflow-x-hidden bg-slate-50 dark:bg-slate-950 scroll-smooth"

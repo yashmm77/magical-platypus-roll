@@ -10,7 +10,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Loader2, Plus, Calendar, User, RefreshCw, Eye, MoreVertical } from "lucide-react";
 import { TaskModal } from "@/components/TaskModal";
 import { useUsers } from "@/hooks/useUsers";
-import { useRole } from "@/hooks/useRole";
 import { toast } from "sonner";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { logActivity } from "@/utils/activity";
@@ -25,7 +24,6 @@ const COLUMNS = [
 const Kanban = () => {
   const navigate = useNavigate();
   const { data: users } = useUsers();
-  const { canEdit } = useRole();
   const [tasks, setTasks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
@@ -62,11 +60,6 @@ const Kanban = () => {
   }, []);
 
   const handleStatusChange = async (taskId: string, newStatus: string, taskTitle: string) => {
-    if (!canEdit) {
-      toast.error("You don't have permission to move tasks.");
-      return;
-    }
-    
     setUpdatingTaskId(taskId);
     const originalTasks = [...tasks];
     
@@ -82,9 +75,11 @@ const Kanban = () => {
       if (error) throw error;
       await logActivity(taskId, `Moved task "${taskTitle}" to ${newStatus.replace('_', ' ')}`);
       toast.success(`Task moved to ${newStatus.replace('_', ' ')}`);
+      // Refetch to ensure sync
       fetchTasks();
     } catch (error: any) {
       toast.error(error.message);
+      // Revert on error
       setTasks(originalTasks);
     } finally {
       setUpdatingTaskId(null);
@@ -92,14 +87,16 @@ const Kanban = () => {
   };
 
   const onDragEnd = (result: DropResult) => {
-    if (!canEdit) {
-      toast.error("You don't have permission to move tasks.");
+    const { destination, source, draggableId } = result;
+
+    if (!destination) return;
+
+    if (
+      destination.droppableId === source.droppableId &&
+      destination.index === source.index
+    ) {
       return;
     }
-
-    const { destination, source, draggableId } = result;
-    if (!destination) return;
-    if (destination.droppableId === source.droppableId && destination.index === source.index) return;
 
     const task = tasks.find(t => t.id === draggableId);
     if (task && destination.droppableId !== source.droppableId) {
@@ -184,7 +181,7 @@ const Kanban = () => {
                     {filteredTasks
                       .filter((task) => task.status === column.id)
                       .map((task, index) => (
-                        <Draggable key={task.id} draggableId={task.id} index={index} isDragDisabled={!canEdit}>
+                        <Draggable key={task.id} draggableId={task.id} index={index}>
                           {(provided, snapshot) => (
                             <div
                               ref={provided.innerRef}
@@ -218,22 +215,16 @@ const Kanban = () => {
                                         <DropdownMenuItem onClick={() => navigate(`/tasks/${task.id}`)}>
                                           <Eye className="w-4 h-4 mr-2" /> View Details
                                         </DropdownMenuItem>
-                                        {canEdit && (
-                                          <DropdownMenuItem onClick={() => { setSelectedTask(task); setModalOpen(true); }}>
-                                            <Plus className="w-4 h-4 mr-2 rotate-45" /> Edit Task
+                                        <DropdownMenuItem onClick={() => { setSelectedTask(task); setModalOpen(true); }}>
+                                          <Plus className="w-4 h-4 mr-2 rotate-45" /> Edit Task
+                                        </DropdownMenuItem>
+                                        <div className="h-px bg-slate-100 dark:bg-slate-800 my-1" />
+                                        <div className="px-2 py-1.5 text-xs font-semibold text-slate-500">Move to:</div>
+                                        {COLUMNS.filter(c => c.id !== task.status).map(c => (
+                                          <DropdownMenuItem key={c.id} onClick={() => handleStatusChange(task.id, c.id, task.title)}>
+                                            {c.title}
                                           </DropdownMenuItem>
-                                        )}
-                                        {canEdit && (
-                                          <>
-                                            <div className="h-px bg-slate-100 dark:bg-slate-800 my-1" />
-                                            <div className="px-2 py-1.5 text-xs font-semibold text-slate-500">Move to:</div>
-                                            {COLUMNS.filter(c => c.id !== task.status).map(c => (
-                                              <DropdownMenuItem key={c.id} onClick={() => handleStatusChange(task.id, c.id, task.title)}>
-                                                {c.title}
-                                              </DropdownMenuItem>
-                                            ))}
-                                          </>
-                                        )}
+                                        ))}
                                       </DropdownMenuContent>
                                     </DropdownMenu>
                                   </div>
