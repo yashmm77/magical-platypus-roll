@@ -1,23 +1,28 @@
 "use client";
 
 import { useState } from "react";
-import { Users, Plus, Mail, Shield, Calendar, MoreVertical, UserPlus, Loader2 } from "lucide-react";
+import { Users, Plus, Mail, Shield, Calendar, MoreVertical, UserPlus, Loader2, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useUsers } from "@/hooks/useUsers";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { supabase } from "@/lib/supabase";
+import { useQueryClient } from "@tanstack/react-query";
+import { cn } from "@/lib/utils";
 
 const Team = () => {
+  const queryClient = useQueryClient();
   const { data: users, isLoading } = useUsers();
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviting, setInviting] = useState(false);
+  const [updatingRoleId, setUpdatingRoleId] = useState<string | null>(null);
 
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,6 +33,25 @@ const Team = () => {
     setInviteEmail("");
     setInviteOpen(false);
     setInviting(false);
+  };
+
+  const handleUpdateRole = async (userId: string, newRole: 'admin' | 'member' | 'viewer') => {
+    setUpdatingRoleId(userId);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ role: newRole })
+        .eq('id', userId);
+
+      if (error) throw error;
+      
+      toast.success(`Role updated to ${newRole}`);
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+    } catch (error: any) {
+      toast.error(error.message || "Failed to update role");
+    } finally {
+      setUpdatingRoleId(null);
+    }
   };
 
   return (
@@ -64,9 +88,17 @@ const Team = () => {
                       <h3 className="text-lg font-bold text-slate-900 dark:text-white group-hover:text-indigo-600 transition-colors">
                         {user.full_name || "Unnamed User"}
                       </h3>
-                      <Badge variant="secondary" className="bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 border-none text-[10px] uppercase tracking-wider mt-1">
-                        {user.role || "Member"}
-                      </Badge>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Badge variant="secondary" className={cn(
+                          "border-none text-[10px] uppercase tracking-wider",
+                          user.role === 'admin' ? "bg-rose-50 text-rose-700 dark:bg-rose-900/20 dark:text-rose-400" :
+                          user.role === 'member' ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-400" :
+                          "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
+                        )}>
+                          {user.role || "Member"}
+                        </Badge>
+                        {updatingRoleId === user.id && <Loader2 className="w-3 h-3 animate-spin text-indigo-600" />}
+                      </div>
                     </div>
                   </div>
                   <DropdownMenu>
@@ -75,9 +107,20 @@ const Team = () => {
                         <MoreVertical className="w-4 h-4" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
+                    <DropdownMenuContent align="end" className="w-48">
                       <DropdownMenuItem>View Profile</DropdownMenuItem>
-                      <DropdownMenuItem>Edit Role</DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <div className="px-2 py-1.5 text-xs font-semibold text-slate-500">Change Role</div>
+                      <DropdownMenuItem onClick={() => handleUpdateRole(user.id, 'admin')} className="gap-2">
+                        <Shield className="w-4 h-4 text-rose-500" /> Admin {user.role === 'admin' && <Check className="w-3 h-3 ml-auto" />}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleUpdateRole(user.id, 'member')} className="gap-2">
+                        <Users className="w-4 h-4 text-indigo-500" /> Member {user.role === 'member' && <Check className="w-3 h-3 ml-auto" />}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleUpdateRole(user.id, 'viewer')} className="gap-2">
+                        <Shield className="w-4 h-4 text-slate-500" /> Viewer {user.role === 'viewer' && <Check className="w-3 h-3 ml-auto" />}
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
                       <DropdownMenuItem className="text-rose-600">Remove from Team</DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -100,7 +143,7 @@ const Team = () => {
                       <div key={i} className="w-6 h-6 rounded-full border-2 border-white dark:border-slate-900 bg-slate-100 dark:bg-slate-800" />
                     ))}
                   </div>
-                  <span className="text-xs text-slate-400 font-medium">12 Active Tasks</span>
+                  <span className="text-xs text-slate-400 font-medium">Active Member</span>
                 </div>
               </CardContent>
             </Card>
@@ -130,8 +173,8 @@ const Team = () => {
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="role">Role</Label>
-                <Badge variant="outline" className="w-fit">Member</Badge>
+                <Label htmlFor="role">Initial Role</Label>
+                <Badge variant="outline" className="w-fit">Viewer</Badge>
               </div>
             </div>
             <DialogFooter>

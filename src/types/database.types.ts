@@ -78,7 +78,7 @@ export interface Database {
           full_name: string | null
           avatar_url: string | null
           email: string | null
-          role: 'admin' | 'member' | null
+          role: 'admin' | 'member' | 'viewer' | null
         }
         Insert: {
           id: string
@@ -87,7 +87,7 @@ export interface Database {
           full_name?: string | null
           avatar_url?: string | null
           email?: string | null
-          role?: 'admin' | 'member' | null
+          role?: 'admin' | 'member' | 'viewer' | null
         }
         Update: {
           id?: string
@@ -96,7 +96,7 @@ export interface Database {
           full_name?: string | null
           avatar_url?: string | null
           email?: string | null
-          role?: 'admin' | 'member' | null
+          role?: 'admin' | 'member' | 'viewer' | null
         }
       }
       comments: {
