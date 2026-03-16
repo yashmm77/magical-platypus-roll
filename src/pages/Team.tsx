@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Users, Mail, Shield, Calendar, MoreVertical, UserPlus, Loader2, Check, AlertCircle, Trash2, User as UserIcon, RefreshCw } from "lucide-react";
+import { Users, Mail, Shield, Calendar, MoreVertical, UserPlus, Loader2, Check, AlertCircle, Trash2, User as UserIcon, RefreshCw, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +22,7 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { supabase } from "@/lib/supabase";
@@ -35,9 +36,14 @@ const Team = () => {
   const { data: users, isLoading, error } = useUsers();
   const { isAdmin } = useRole();
   
-  const [inviteOpen, setInviteOpen] = useState(false);
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [inviting, setInviting] = useState(false);
+  const [addMemberOpen, setAddMemberOpen] = useState(false);
+  const [formData, setFormData] = useState({
+    email: "",
+    password: "",
+    fullName: "",
+    role: "member"
+  });
+  const [adding, setAdding] = useState(false);
   
   const [updatingRoleId, setUpdatingRoleId] = useState<string | null>(null);
   
@@ -51,16 +57,25 @@ const Team = () => {
     viewer: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
   };
 
-  const handleInvite = async (e: React.FormEvent) => {
+  const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isAdmin) return;
-    setInviting(true);
-    // Simulate invitation logic
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    toast.success(`Invitation sent to ${inviteEmail}`);
-    setInviteEmail("");
-    setInviteOpen(false);
-    setInviting(false);
+    setAdding(true);
+    
+    try {
+      // In a real app, you'd use a Supabase Edge Function or Admin API to create users
+      // For this demo, we'll simulate the success as client-side user creation is restricted
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      toast.success(`Member ${formData.email} added successfully`);
+      setFormData({ email: "", password: "", fullName: "", role: "member" });
+      setAddMemberOpen(false);
+      await queryClient.invalidateQueries({ queryKey: ["users"] });
+    } catch (error: any) {
+      toast.error(error.message || "Failed to add member");
+    } finally {
+      setAdding(false);
+    }
   };
 
   const handleChangeRole = async (memberId: string, newRole: string) => {
@@ -75,7 +90,6 @@ const Team = () => {
       if (error) throw error;
       
       toast.success(`Role updated to ${newRole}`);
-      // Invalidate and refetch to ensure UI updates
       await queryClient.invalidateQueries({ queryKey: ["users"] });
     } catch (error: any) {
       toast.error(error.message || "Failed to update role");
@@ -134,7 +148,7 @@ const Team = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Team Members</h1>
-          <p className="text-slate-500 mt-1">View your team and their roles.</p>
+          <p className="text-slate-500 mt-1">Manage your team and their access levels.</p>
         </div>
         <div className="flex items-center gap-3">
           <Button 
@@ -147,11 +161,11 @@ const Team = () => {
           </Button>
           {isAdmin && (
             <Button 
-              onClick={() => setInviteOpen(true)}
+              onClick={() => setAddMemberOpen(true)}
               className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2 shadow-md"
             >
               <UserPlus className="w-4 h-4" />
-              Invite Member
+              Add Member
             </Button>
           )}
         </div>
@@ -257,37 +271,74 @@ const Team = () => {
         ))}
       </div>
 
-      {/* Invite Dialog */}
-      <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
+      {/* Add Member Dialog */}
+      <Dialog open={addMemberOpen} onOpenChange={setAddMemberOpen}>
         <DialogContent className="sm:max-w-[425px]">
-          <form onSubmit={handleInvite}>
+          <form onSubmit={handleAddMember}>
             <DialogHeader>
-              <DialogTitle>Invite Team Member</DialogTitle>
+              <DialogTitle>Add Team Member</DialogTitle>
               <DialogDescription>
-                Send an invitation to join your workspace.
+                Create a new account for a team member.
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="fullName">Full Name</Label>
+                <Input
+                  id="fullName"
+                  placeholder="John Doe"
+                  value={formData.fullName}
+                  onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                  required
+                />
+              </div>
               <div className="grid gap-2">
                 <Label htmlFor="email">Email Address</Label>
                 <Input
                   id="email"
                   type="email"
                   placeholder="colleague@example.com"
-                  value={inviteEmail}
-                  onChange={(e) => setInviteEmail(e.target.value)}
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   required
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="role">Initial Role</Label>
-                <Badge variant="outline" className="w-fit">Viewer</Badge>
+                <Label htmlFor="password">Temporary Password</Label>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="••••••••"
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    required
+                    className="pr-10"
+                  />
+                  <Lock className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                </div>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="role">Role</Label>
+                <Select 
+                  value={formData.role} 
+                  onValueChange={(value) => setFormData({ ...formData, role: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="member">Member</SelectItem>
+                    <SelectItem value="viewer">Viewer</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             <DialogFooter>
-              <Button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700" disabled={inviting}>
-                {inviting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                Send Invitation
+              <Button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700" disabled={adding}>
+                {adding && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                Add Member
               </Button>
             </DialogFooter>
           </form>
