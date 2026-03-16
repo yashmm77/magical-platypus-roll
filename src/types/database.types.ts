@@ -96,6 +96,52 @@ export interface Database {
           role?: 'admin' | 'member' | null
         }
       }
+      comments: {
+        Row: {
+          id: string
+          created_at: string
+          task_id: string
+          user_id: string
+          content: string
+        }
+        Insert: {
+          id?: string
+          created_at?: string
+          task_id: string
+          user_id: string
+          content: string
+        }
+        Update: {
+          id?: string
+          created_at?: string
+          task_id?: string
+          user_id?: string
+          content?: string
+        }
+      }
+      activity_logs: {
+        Row: {
+          id: string
+          created_at: string
+          task_id: string
+          action: string
+          user_id: string | null
+        }
+        Insert: {
+          id?: string
+          created_at?: string
+          task_id: string
+          action: string
+          user_id?: string | null
+        }
+        Update: {
+          id?: string
+          created_at?: string
+          task_id?: string
+          action?: string
+          user_id?: string | null
+        }
+      }
     }
     Views: {
       [_ in never]: never

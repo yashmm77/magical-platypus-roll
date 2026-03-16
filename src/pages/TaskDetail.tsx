@@ -1,0 +1,318 @@
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/hooks/useAuth";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Separator } from "@/components/ui/separator";
+import { 
+  Loader2, 
+  Calendar, 
+  User, 
+  Clock, 
+  MessageSquare, 
+  History, 
+  ArrowLeft,
+  Send
+} from "lucide-react";
+import { format } from "date-fns";
+import { toast } from "sonner";
+import { Task, CommentWithProfile, ActivityLog } from "@/types";
+
+const TaskDetail = () => {
+  const { id } = useParams<{ id: string }>();
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  
+  const [task, setTask] = useState<(Task & { assigned_to_name?: string; created_by_name?: string }) | null>(null);
+  const [comments, setComments] = useState<CommentWithProfile[]>([]);
+  const [logs, setLogs] = useState<ActivityLog[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [commentText, setCommentText] = useState("");
+  const [submittingComment, setSubmittingComment] = useState(false);
+
+  const fetchData = useCallback(async () => {
+    if (!id) return;
+    setLoading(true);
+    try {
+      // Fetch Task with joined profile names
+      const { data: taskData, error: taskError } = await supabase
+        .from("tasks")
+        .select(`
+          *,
+          assigned_to_profile:profiles!tasks_assigned_to_fkey(full_name),
+          created_by_profile:profiles!tasks_created_by_fkey(full_name)
+        `)
+        .eq("id", id)
+        .single();
+
+      if (taskError) throw taskError;
+
+      // Map the joined data to a flatter structure
+      const formattedTask = {
+        ...taskData,
+        assigned_to_name: (taskData as any).assigned_to_profile?.full_name || "Unassigned",
+        created_by_name: (taskData as any).created_by_profile?.full_name || "Unknown"
+      };
+      setTask(formattedTask);
+
+      // Fetch Comments
+      const { data: commentsData, error: commentsError } = await supabase
+        .from("comments")
+        .select(`
+          *,
+          profiles(full_name)
+        `)
+        .eq("task_id", id)
+        .order("created_at", { ascending: true });
+
+      if (commentsError) throw commentsError;
+      setComments(commentsData as any);
+
+      // Fetch Activity Logs
+      const { data: logsData, error: logsError } = await supabase
+        .from("activity_logs")
+        .select("*")
+        .eq("task_id", id)
+        .order("created_at", { ascending: false });
+
+      if (logsError) throw logsError;
+      setLogs(logsData);
+
+    } catch (error: any) {
+      console.error("Error fetching task details:", error);
+      toast.error(error.message || "Failed to load task details");
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  const handleAddComment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user || !id || !commentText.trim()) return;
+
+    setSubmittingComment(true);
+    try {
+      const { error } = await supabase
+        .from("comments")
+        .insert({
+          task_id: id,
+          user_id: user.id,
+          content: commentText.trim()
+        });
+
+      if (error) throw error;
+
+      setCommentText("");
+      toast.success("Comment added");
+      fetchData(); // Refresh to show new comment
+    } catch (error: any) {
+      toast.error(error.message || "Failed to add comment");
+    } finally {
+      setSubmittingComment(false);
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "todo": return "bg-slate-100 text-slate-700 border-slate-200";
+      case "in_progress": return "bg-blue-50 text-blue-700 border-blue-100";
+      case "completed": return "bg-emerald-50 text-emerald-700 border-emerald-100";
+      default: return "bg-slate-100 text-slate-700";
+    }
+  };
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case "high": return "bg-rose-50 text-rose-700 border-rose-100";
+      case "medium": return "bg-amber-50 text-amber-700 border-amber-100";
+      case "low": return "bg-emerald-50 text-emerald-700 border-emerald-100";
+      default: return "bg-slate-100 text-slate-700";
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
+      </div>
+    );
+  }
+
+  if (!task) {
+    return (
+      <div className="text-center py-12">
+        <h2 className="text-xl font-semibold text-slate-900">Task not found</h2>
+        <Button variant="link" onClick={() => navigate("/tasks")} className="mt-4">
+          Back to Tasks
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-5xl mx-auto space-y-8">
+      <Button 
+        variant="ghost" 
+        onClick={() => navigate(-1)} 
+        className="gap-2 text-slate-500 hover:text-indigo-600"
+      >
+        <ArrowLeft className="w-4 h-4" />
+        Back
+      </Button>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Left Column: Task Info & Comments */}
+        <div className="lg:col-span-2 space-y-8">
+          {/* Task Info Section */}
+          <Card className="border-none shadow-sm bg-white">
+            <CardHeader className="pb-4">
+              <div className="flex items-center gap-3 mb-4">
+                <Badge variant="outline" className={getStatusColor(task.status)}>
+                  {task.status.replace('_', ' ')}
+                </Badge>
+                <Badge variant="outline" className={getPriorityColor(task.priority)}>
+                  {task.priority} Priority
+                </Badge>
+              </div>
+              <CardTitle className="text-3xl font-bold text-slate-900">{task.title}</CardTitle>
+              <CardDescription className="text-base mt-4 text-slate-600 whitespace-pre-wrap">
+                {task.description || "No description provided."}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-4 border-t border-slate-100">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3 text-sm">
+                    <Calendar className="w-4 h-4 text-slate-400" />
+                    <div>
+                      <p className="text-slate-500 font-medium">Due Date</p>
+                      <p className="text-slate-900">
+                        {task.due_date ? format(new Date(task.due_date), "PPP") : "No due date"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 text-sm">
+                    <User className="w-4 h-4 text-slate-400" />
+                    <div>
+                      <p className="text-slate-500 font-medium">Assigned To</p>
+                      <p className="text-slate-900">{task.assigned_to_name}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3 text-sm">
+                    <Clock className="w-4 h-4 text-slate-400" />
+                    <div>
+                      <p className="text-slate-500 font-medium">Created At</p>
+                      <p className="text-slate-900">{format(new Date(task.created_at), "PPP p")}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 text-sm">
+                    <User className="w-4 h-4 text-slate-400" />
+                    <div>
+                      <p className="text-slate-500 font-medium">Created By</p>
+                      <p className="text-slate-900">{task.created_by_name}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Comments Section */}
+          <div className="space-y-4">
+            <h3 className="text-xl font-semibold text-slate-900 flex items-center gap-2">
+              <MessageSquare className="w-5 h-5 text-indigo-500" />
+              Comments
+            </h3>
+            
+            <div className="space-y-4">
+              {comments.length === 0 ? (
+                <p className="text-slate-500 text-sm italic py-4">No comments yet.</p>
+              ) : (
+                comments.map((comment) => (
+                  <div key={comment.id} className="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-semibold text-slate-900 text-sm">
+                        {comment.profiles?.full_name || "Unknown User"}
+                      </span>
+                      <span className="text-xs text-slate-400">
+                        {format(new Date(comment.created_at), "MMM d, p")}
+                      </span>
+                    </div>
+                    <p className="text-slate-700 text-sm whitespace-pre-wrap">{comment.content}</p>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Add Comment Form */}
+            <form onSubmit={handleAddComment} className="mt-6 space-y-3">
+              <Textarea 
+                placeholder="Write a comment..." 
+                value={commentText}
+                onChange={(e) => setCommentText(e.target.value)}
+                className="min-h-[100px] bg-white border-slate-200 focus:ring-indigo-500"
+              />
+              <div className="flex justify-end">
+                <Button 
+                  type="submit" 
+                  disabled={submittingComment || !commentText.trim()}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2"
+                >
+                  {submittingComment ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                  Post Comment
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        {/* Right Column: Activity Log */}
+        <div className="space-y-4">
+          <h3 className="text-xl font-semibold text-slate-900 flex items-center gap-2">
+            <History className="w-5 h-5 text-indigo-500" />
+            Activity Log
+          </h3>
+          <Card className="border-none shadow-sm bg-white">
+            <CardContent className="p-4">
+              <div className="space-y-6">
+                {logs.length === 0 ? (
+                  <p className="text-slate-500 text-sm italic">No activity recorded.</p>
+                ) : (
+                  logs.map((log, idx) => (
+                    <div key={log.id} className="relative pl-6 pb-6 last:pb-0">
+                      {idx !== logs.length - 1 && (
+                        <div className="absolute left-[7px] top-[20px] bottom-0 w-[2px] bg-slate-100" />
+                      )}
+                      <div className="absolute left-0 top-[6px] w-4 h-4 rounded-full bg-indigo-100 border-2 border-white flex items-center justify-center">
+                        <div className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+                      </div>
+                      <div>
+                        <p className="text-sm text-slate-800 font-medium">{log.action}</p>
+                        <p className="text-xs text-slate-400 mt-1">
+                          {format(new Date(log.created_at), "MMM d, yyyy HH:mm")}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default TaskDetail;

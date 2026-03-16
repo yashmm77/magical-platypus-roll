@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,12 +9,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Search, Plus, Pencil, Trash2, Calendar, RefreshCw, Loader2 } from "lucide-react";
+import { Search, Plus, Pencil, Trash2, Calendar, RefreshCw, Loader2, Eye } from "lucide-react";
 import { useUsers } from "@/hooks/useUsers";
 import { toast } from "sonner";
 import { TaskModal } from "@/components/TaskModal";
 
 const Tasks = () => {
+  const navigate = useNavigate();
   const { data: users } = useUsers();
   const [tasks, setTasks] = useState<any[]>([]);
   const [filteredTasks, setFilteredTasks] = useState<any[]>([]);
@@ -31,7 +33,6 @@ const Tasks = () => {
   const fetchTasks = useCallback(async (showLoading = true) => {
     try {
       if (showLoading) setLoading(true);
-      console.log("Fetching tasks from Supabase...");
       
       const { data, error } = await supabase
         .from("tasks")
@@ -39,11 +40,8 @@ const Tasks = () => {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      
-      console.log("Tasks fetched successfully:", data);
       setTasks(data || []);
     } catch (error: any) {
-      console.error("Error fetching tasks:", error);
       toast.error(error.message || "Failed to fetch tasks");
     } finally {
       setLoading(false);
@@ -106,7 +104,6 @@ const Tasks = () => {
       const { error } = await supabase.from("tasks").delete().eq("id", taskToDelete.id);
       if (error) throw error;
       
-      // Optimistic update
       setTasks(prev => prev.filter(t => t.id !== taskToDelete.id));
       toast.success("Task deleted successfully");
     } catch (error: any) {
@@ -219,8 +216,15 @@ const Tasks = () => {
             <tbody className="divide-y divide-slate-100">
               {filteredTasks.length > 0 ? (
                 filteredTasks.map((task) => (
-                  <tr key={task.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-6 py-4 text-sm font-medium text-slate-900">{task.title}</td>
+                  <tr key={task.id} className="hover:bg-slate-50 transition-colors group">
+                    <td className="px-6 py-4 text-sm font-medium text-slate-900">
+                      <button 
+                        onClick={() => navigate(`/tasks/${task.id}`)}
+                        className="hover:text-indigo-600 hover:underline text-left"
+                      >
+                        {task.title}
+                      </button>
+                    </td>
                     <td className="px-6 py-4 text-sm text-slate-500">
                       {getAssigneeDisplay(task)}
                     </td>
@@ -242,6 +246,9 @@ const Tasks = () => {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
+                        <Button variant="ghost" size="sm" onClick={() => navigate(`/tasks/${task.id}`)}>
+                          <Eye className="w-4 h-4" />
+                        </Button>
                         <Button variant="ghost" size="sm" onClick={() => { setSelectedTask(task); setTaskModalOpen(true); }}>
                           <Pencil className="w-4 h-4" />
                         </Button>

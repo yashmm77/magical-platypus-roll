@@ -9,6 +9,7 @@ import Dashboard from "./pages/Dashboard";
 import Tasks from "./pages/Tasks";
 import Kanban from "./pages/Kanban";
 import Profile from "./pages/Profile";
+import TaskDetail from "./pages/TaskDetail";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
 const App = () => (
@@ -22,6 +23,7 @@ const App = () => (
       <Route path="/team" element={<ProtectedRoute><Layout><Team /></Layout></ProtectedRoute>} />
       <Route path="/dashboard" element={<ProtectedRoute><Layout><Dashboard /></Layout></ProtectedRoute>} />
       <Route path="/tasks" element={<ProtectedRoute><Layout><Tasks /></Layout></ProtectedRoute>} />
+      <Route path="/tasks/:id" element={<ProtectedRoute><Layout><TaskDetail /></Layout></ProtectedRoute>} />
       <Route path="/profile" element={<ProtectedRoute><Layout><Profile /></Layout></ProtectedRoute>} />
       
       <Route path="*" element={<NotFound />} />
