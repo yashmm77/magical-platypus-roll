@@ -7,10 +7,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Plus, Calendar, User, RefreshCw, Eye } from "lucide-react";
+import { Loader2, Plus, Calendar, User, RefreshCw, Eye, MoreVertical } from "lucide-react";
 import { TaskModal } from "@/components/TaskModal";
 import { useUsers } from "@/hooks/useUsers";
 import { toast } from "sonner";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { logActivity } from "@/utils/activity";
 
 const COLUMNS = [
   { id: "todo", title: "To Do", color: "bg-slate-100" },
@@ -54,6 +56,22 @@ const Kanban = () => {
       supabase.removeChannel(channel);
     };
   }, []);
+
+  const handleStatusChange = async (taskId: string, newStatus: string, taskTitle: string) => {
+    try {
+      const { error } = await supabase
+        .from("tasks")
+        .update({ status: newStatus })
+        .eq("id", taskId);
+
+      if (error) throw error;
+      await logActivity(taskId, `Moved task "${taskTitle}" to ${newStatus.replace('_', ' ')}`);
+      toast.success(`Task moved to ${newStatus.replace('_', ' ')}`);
+      fetchTasks();
+    } catch (error: any) {
+      toast.error(error.message);
+    }
+  };
 
   const filteredTasks = tasks.filter(task => {
     if (assigneeFilter === "all") return true;
@@ -135,10 +153,31 @@ const Kanban = () => {
                   >
                     <CardContent className="p-4 space-y-3">
                       <div className="flex items-start justify-between gap-2">
-                        <h3 className="font-medium text-slate-900 leading-tight group-hover:text-indigo-600 transition-colors">{task.title}</h3>
-                        <Badge variant="outline" className={`text-[10px] uppercase tracking-wider px-1.5 py-0 ${getPriorityColor(task.priority)}`}>
-                          {task.priority}
-                        </Badge>
+                        <h3 className="font-medium text-slate-900 leading-tight group-hover:text-indigo-600 transition-colors cursor-pointer" onClick={() => navigate(`/tasks/${task.id}`)}>
+                          {task.title}
+                        </h3>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400">
+                              <MoreVertical className="w-3.5 h-3.5" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => navigate(`/tasks/${task.id}`)}>
+                              <Eye className="w-4 h-4 mr-2" /> View Details
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => { setSelectedTask(task); setModalOpen(true); }}>
+                              <Plus className="w-4 h-4 mr-2 rotate-45" /> Edit Task
+                            </DropdownMenuItem>
+                            <div className="h-px bg-slate-100 my-1" />
+                            <div className="px-2 py-1.5 text-xs font-semibold text-slate-500">Move to:</div>
+                            {COLUMNS.filter(c => c.id !== task.status).map(c => (
+                              <DropdownMenuItem key={c.id} onClick={() => handleStatusChange(task.id, c.id, task.title)}>
+                                {c.title}
+                              </DropdownMenuItem>
+                            ))}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                       
                       {task.description && (
@@ -156,24 +195,9 @@ const Kanban = () => {
                             {getAssigneeName(task.assigned_to)}
                           </div>
                         </div>
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-7 w-7 text-indigo-600 hover:bg-indigo-50"
-                            onClick={() => navigate(`/tasks/${task.id}`)}
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-7 w-7 text-slate-400 hover:bg-slate-100"
-                            onClick={() => { setSelectedTask(task); setModalOpen(true); }}
-                          >
-                            <Plus className="w-3.5 h-3.5 rotate-45" />
-                          </Button>
-                        </div>
+                        <Badge variant="outline" className={`text-[10px] uppercase tracking-wider px-1.5 py-0 ${getPriorityColor(task.priority)}`}>
+                          {task.priority}
+                        </Badge>
                       </div>
                     </CardContent>
                   </Card>

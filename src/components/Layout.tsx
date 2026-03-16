@@ -4,6 +4,7 @@ import { LayoutDashboard, CheckSquare, User, Settings, Trello, List } from 'luci
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import Logout from './Logout';
+import { GlobalSearch } from './GlobalSearch';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -80,11 +81,14 @@ const Layout = ({ children }: LayoutProps) => {
       <main className="flex-1 flex flex-col min-w-0">
         {/* Header */}
         <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 sticky top-0 z-10">
-          <h2 className="text-lg font-semibold text-slate-800">
-            {navItems.find(i => i.path === location.pathname)?.label || (location.pathname === "/profile" ? "Profile" : "TaskTracker")}
-          </h2>
+          <div className="flex items-center gap-8 flex-1">
+            <h2 className="text-lg font-semibold text-slate-800 hidden md:block">
+              {navItems.find(i => i.path === location.pathname)?.label || (location.pathname === "/profile" ? "Profile" : "TaskTracker")}
+            </h2>
+            <GlobalSearch />
+          </div>
           {user && (
-            <Link to="/profile" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+            <Link to="/profile" className="flex items-center gap-3 hover:opacity-80 transition-opacity ml-4">
               <div className="text-right hidden sm:block">
                 <p className="text-sm font-semibold text-slate-900">{user.email?.split('@')[0]}</p>
                 <p className="text-xs text-slate-500">Administrator</p>
