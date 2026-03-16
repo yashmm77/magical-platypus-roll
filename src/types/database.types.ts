@@ -20,6 +20,7 @@ export interface Database {
           due_date: string | null
           assigned_to: string | null
           team_id: string | null
+          created_by: string | null
         }
         Insert: {
           id?: string
@@ -31,6 +32,7 @@ export interface Database {
           due_date?: string | null
           assigned_to?: string | null
           team_id?: string | null
+          created_by?: string | null
         }
         Update: {
           id?: string
@@ -42,6 +44,7 @@ export interface Database {
           due_date?: string | null
           assigned_to?: string | null
           team_id?: string | null
+          created_by?: string | null
         }
       }
       teams: {

@@ -12,7 +12,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Search, Plus, Eye, Pencil, Trash2, Calendar } from "lucide-react";
 import { useUsers } from "@/hooks/useUsers";
 import { toast } from "sonner";
-import { CreateTaskDialog } from "@/components/CreateTaskDialog";
+import { TaskModal } from "@/components/TaskModal";
 
 const Tasks = () => {
   const navigate = useNavigate();
@@ -24,15 +24,17 @@ const Tasks = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [assignedToFilter, setAssignedToFilter] = useState("all");
+  
+  // Modal states
+  const [taskModalOpen, setTaskModalOpen] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<any>(null);
+  
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [taskToDelete, setTaskToDelete] = useState<any>(null);
 
   const fetchTasks = async () => {
     try {
       setLoading(true);
-      console.log("Fetching tasks...");
-      
-      // Fetch tasks with a simpler join syntax
       const { data, error } = await supabase
         .from("tasks")
         .select(`
@@ -44,22 +46,9 @@ const Tasks = () => {
         `)
         .order("created_at", { ascending: false });
 
-      if (error) {
-        console.error("Fetch error:", error);
-        // Fallback: try fetching without join if join fails
-        const { data: simpleData, error: simpleError } = await supabase
-          .from("tasks")
-          .select("*")
-          .order("created_at", { ascending: false });
-          
-        if (simpleError) throw simpleError;
-        setTasks(simpleData || []);
-      } else {
-        console.log("Fetched tasks with profiles:", data);
-        setTasks(data || []);
-      }
+      if (error) throw error;
+      setTasks(data || []);
     } catch (error: any) {
-      console.error("Error fetching tasks:", error);
       toast.error(error.message || "Failed to fetch tasks");
       setTasks([]);
     } finally {
@@ -71,7 +60,6 @@ const Tasks = () => {
     fetchTasks();
   }, []);
 
-  // Apply filters
   useEffect(() => {
     let result = [...tasks];
     
@@ -119,6 +107,16 @@ const Tasks = () => {
     return new Date(dueDate) < new Date();
   };
 
+  const handleCreateClick = () => {
+    setSelectedTask(null);
+    setTaskModalOpen(true);
+  };
+
+  const handleEditClick = (task: any) => {
+    setSelectedTask(task);
+    setTaskModalOpen(true);
+  };
+
   const handleDeleteClick = (task: any) => {
     setTaskToDelete(task);
     setDeleteDialogOpen(true);
@@ -157,7 +155,10 @@ const Tasks = () => {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <h1 className="text-2xl font-bold text-slate-800">Task List</h1>
-        <CreateTaskDialog onTaskCreated={fetchTasks} />
+        <Button onClick={handleCreateClick} className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2">
+          <Plus className="w-4 h-4" />
+          New Task
+        </Button>
       </div>
 
       <Card className="border-none shadow-sm">
@@ -265,15 +266,7 @@ const Tasks = () => {
                           variant="ghost" 
                           size="sm"
                           className="text-slate-500 hover:text-indigo-600"
-                          onClick={() => navigate(`/tasks/${task.id}`)}
-                        >
-                          <Eye className="w-4 h-4" />
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          className="text-slate-500 hover:text-indigo-600"
-                          onClick={() => console.log("Edit task", task.id)}
+                          onClick={() => handleEditClick(task)}
                         >
                           <Pencil className="w-4 h-4" />
                         </Button>
@@ -295,11 +288,6 @@ const Tasks = () => {
                     <div className="flex flex-col items-center justify-center">
                       <Calendar className="w-12 h-12 text-slate-300 mb-4" />
                       <p className="text-lg">No tasks found</p>
-                      <p className="text-sm mt-1">
-                        {tasks.length === 0 
-                          ? "No tasks in the database. Create your first task!" 
-                          : "Try adjusting your filters"}
-                      </p>
                     </div>
                   </td>
                 </tr>
@@ -308,6 +296,14 @@ const Tasks = () => {
           </table>
         </div>
       </Card>
+
+      {/* Task Modal for Create/Edit */}
+      <TaskModal 
+        open={taskModalOpen} 
+        onOpenChange={setTaskModalOpen} 
+        task={selectedTask} 
+        onSuccess={fetchTasks} 
+      />
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
