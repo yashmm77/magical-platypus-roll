@@ -48,17 +48,20 @@ export const GlobalSearch = () => {
   // Search tasks when query changes
   useEffect(() => {
     const searchTasks = async () => {
-      if (query.length < 2) {
+      if (query.length < 1) {
         setResults([]);
         return;
       }
+      
       setLoading(true);
       try {
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from("tasks")
           .select("id, title, status")
           .ilike("title", `%${query}%`)
-          .limit(5);
+          .limit(10);
+        
+        if (error) throw error;
         setResults(data || []);
       } catch (err) {
         console.error("Search error:", err);
@@ -92,24 +95,34 @@ export const GlobalSearch = () => {
 
       <CommandDialog open={open} onOpenChange={setOpen}>
         <CommandInput 
-          placeholder="Type a command or search..." 
+          placeholder="Type to search tasks..." 
           value={query}
           onValueChange={setQuery}
         />
         <CommandList>
-          <CommandEmpty>No results found.</CommandEmpty>
+          {loading && (
+            <div className="flex items-center justify-center p-4">
+              <Loader2 className="h-4 w-4 animate-spin text-indigo-600" />
+              <span className="ml-2 text-xs text-slate-500">Searching...</span>
+            </div>
+          )}
+          
+          {!loading && query.length > 0 && results.length === 0 && (
+            <CommandEmpty>No tasks found for "{query}".</CommandEmpty>
+          )}
           
           {results.length > 0 && (
             <CommandGroup heading="Tasks">
               {results.map((task) => (
                 <CommandItem
                   key={task.id}
+                  value={task.title}
                   onSelect={() => runCommand(() => navigate(`/tasks/${task.id}`))}
                   className="flex items-center gap-2"
                 >
                   <FileText className="h-4 w-4 text-slate-400" />
-                  <span>{task.title}</span>
-                  <span className="ml-auto text-[10px] uppercase tracking-wider text-slate-400">
+                  <span className="flex-1 truncate">{task.title}</span>
+                  <span className="text-[10px] uppercase tracking-wider text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
                     {task.status.replace('_', ' ')}
                   </span>
                 </CommandItem>
