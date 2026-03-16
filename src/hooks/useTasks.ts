@@ -11,22 +11,21 @@ export const useTasks = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("tasks")
-        .select(`
-          *,
-          assigned_user:profiles!tasks_assigned_to_fkey(full_name, email)
-        `)
+        .select("*")
         .order("created_at", { ascending: false });
 
       if (error) throw error;
+      console.log("Tasks fetched:", data);
       return data;
     },
   });
 
   const createTaskMutation = useMutation({
     mutationFn: async (newTask: Partial<Task>) => {
+      const { data: { user } } = await supabase.auth.getUser();
       const { data, error } = await supabase
         .from("tasks")
-        .insert([newTask])
+        .insert([{ ...newTask, created_by: user?.id }])
         .select()
         .single();
 
@@ -43,7 +42,7 @@ export const useTasks = () => {
   });
 
   return {
-    tasks: tasksQuery.data || [],
+    tasks: (tasksQuery.data as Task[]) || [],
     isLoading: tasksQuery.isLoading,
     createTask: createTaskMutation.mutate,
     isCreating: createTaskMutation.isPending,
