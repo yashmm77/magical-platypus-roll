@@ -31,7 +31,7 @@ export const TaskModal = ({ open, onOpenChange, task, onSuccess }: TaskModalProp
   const [formData, setFormData] = useState({
     title: "",
     description: "",
-    status: "todo" as "todo" | "in_progress" | "done",
+    status: "todo" as "todo" | "in_progress" | "completed",
     priority: "medium" as "low" | "medium" | "high",
     assigned_to: "" as string | null,
     due_date: null as string | null,
@@ -158,7 +158,7 @@ export const TaskModal = ({ open, onOpenChange, task, onSuccess }: TaskModalProp
                   <SelectContent>
                     <SelectItem value="todo">Todo</SelectItem>
                     <SelectItem value="in_progress">In Progress</SelectItem>
-                    <SelectItem value="done">Done</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

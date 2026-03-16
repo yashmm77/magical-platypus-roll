@@ -18,7 +18,7 @@ import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea
 const COLUMNS = [
   { id: "todo", title: "To Do", color: "bg-slate-100" },
   { id: "in_progress", title: "In Progress", color: "bg-blue-50" },
-  { id: "done", title: "Done", color: "bg-emerald-50" },
+  { id: "completed", title: "Completed", color: "bg-emerald-50" },
 ];
 
 const Kanban = () => {
@@ -75,6 +75,8 @@ const Kanban = () => {
       if (error) throw error;
       await logActivity(taskId, `Moved task "${taskTitle}" to ${newStatus.replace('_', ' ')}`);
       toast.success(`Task moved to ${newStatus.replace('_', ' ')}`);
+      // Explicitly refetch to ensure sync
+      await fetchTasks();
     } catch (error: any) {
       toast.error(error.message);
       // Revert on error
