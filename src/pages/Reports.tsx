@@ -6,13 +6,13 @@ import { useUsers } from "@/hooks/useUsers";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Loader2, BarChart3, TrendingUp, Users, CheckCircle2, Clock, AlertCircle, PieChart as PieChartIcon, RefreshCw } from "lucide-react";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
+import { 
+  BarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
   ResponsiveContainer,
   AreaChart,
   Area,
@@ -40,7 +40,6 @@ const Reports = () => {
   };
 
   const { stats, dailyData, workloadData, priorityData } = useMemo(() => {
-
     if (!tasks || tasks.length === 0) {
       return {
         stats: { total_tasks: 0, completed_tasks: 0, pending_tasks: 0, overdue_tasks: 0 },
@@ -113,6 +112,9 @@ const Reports = () => {
         <AlertCircle className="w-12 h-12 text-rose-500" />
         <h2 className="text-xl font-semibold text-slate-900 dark:text-white">Failed to load reports</h2>
         <p className="text-slate-500">{(error as Error).message || "An unexpected error occurred."}</p>
+        <Button onClick={handleRefresh} variant="outline" className="mt-4">
+          Try Again
+        </Button>
       </div>
     );
   }
@@ -123,16 +125,9 @@ const Reports = () => {
         <BarChart3 className="w-12 h-12 text-slate-300" />
         <h2 className="text-xl font-semibold text-slate-900 dark:text-white">No data available</h2>
         <p className="text-slate-500">Create some tasks to see analytics and reports.</p>
-      </div>
-    );
-  }
-
-  if (!tasks || tasks.length === 0) {
-    return (
-      <div className="min-h-[60vh] flex flex-col items-center justify-center space-y-4">
-        <BarChart3 className="w-12 h-12 text-slate-300" />
-        <h2 className="text-xl font-semibold text-slate-900 dark:text-white">No data available</h2>
-        <p className="text-slate-500">Create some tasks to see analytics and reports.</p>
+        <Button onClick={handleRefresh} variant="outline" className="mt-4">
+          Refresh Data
+        </Button>
       </div>
     );
   }
@@ -144,6 +139,15 @@ const Reports = () => {
           <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Reports & Analytics</h1>
           <p className="text-slate-500 mt-1">Track your team's performance and task completion trends.</p>
         </div>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={handleRefresh}
+          className="gap-2"
+        >
+          <RefreshCw className="w-4 h-4" />
+          Refresh
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

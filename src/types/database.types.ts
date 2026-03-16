@@ -13,6 +13,7 @@ export interface Database {
         Row: {
           id: string
           created_at: string
+          updated_at: string | null
           title: string
           description: string | null
           status: 'todo' | 'in_progress' | 'done'
@@ -25,6 +26,7 @@ export interface Database {
         Insert: {
           id?: string
           created_at?: string
+          updated_at?: string | null
           title: string
           description?: string | null
           status?: 'todo' | 'in_progress' | 'done'
@@ -37,6 +39,7 @@ export interface Database {
         Update: {
           id?: string
           created_at?: string
+          updated_at?: string | null
           title?: string
           description?: string | null
           status?: 'todo' | 'in_progress' | 'done'
