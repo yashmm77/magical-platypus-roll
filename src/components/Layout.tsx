@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, CheckSquare, User, Settings, Trello, List, Calendar, Plus } from 'lucide-react';
+import { LayoutDashboard, CheckSquare, User, Settings, Trello, List, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import Logout from './Logout';
