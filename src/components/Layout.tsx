@@ -1,10 +1,13 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, CheckSquare, User, Settings, Trello, List, Calendar } from 'lucide-react';
+import { LayoutDashboard, CheckSquare, User, Settings, Trello, List, Calendar, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import Logout from './Logout';
 import { GlobalSearch } from './GlobalSearch';
+import { ThemeToggle } from './ThemeToggle';
+import { Notifications } from './Notifications';
+import { CreateTaskDialog } from './CreateTaskDialog';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -16,7 +19,7 @@ const Layout = ({ children }: LayoutProps) => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC]">
+      <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC] dark:bg-slate-950">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
       </div>
     );
@@ -31,9 +34,9 @@ const Layout = ({ children }: LayoutProps) => {
   ];
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen flex bg-white dark:bg-slate-950">
       {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-slate-200 flex flex-col sticky top-0 h-screen">
+      <aside className="w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col sticky top-0 h-screen hidden lg:flex">
         <div className="p-6">
           <Link to="/" className="text-2xl font-bold text-indigo-600 flex items-center gap-2">
             <CheckSquare className="w-8 h-8" />
@@ -48,8 +51,8 @@ const Layout = ({ children }: LayoutProps) => {
               asChild 
               className={`w-full justify-start gap-3 h-11 ${
                 location.pathname === item.path 
-                  ? "bg-indigo-50 text-indigo-600 font-semibold" 
-                  : "text-slate-600 hover:text-indigo-600 hover:bg-indigo-50"
+                  ? "bg-indigo-50 text-indigo-600 font-semibold dark:bg-indigo-900/20 dark:text-indigo-400" 
+                  : "text-slate-600 dark:text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/10"
               }`}
             >
               <Link to={item.path}> 
@@ -63,8 +66,8 @@ const Layout = ({ children }: LayoutProps) => {
             asChild
             className={`w-full justify-start gap-3 h-11 ${
               location.pathname === "/profile" 
-                ? "bg-indigo-50 text-indigo-600 font-semibold" 
-                : "text-slate-600 hover:text-indigo-600 hover:bg-indigo-50"
+                ? "bg-indigo-50 text-indigo-600 font-semibold dark:bg-indigo-900/20 dark:text-indigo-400" 
+                : "text-slate-600 dark:text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/10"
             }`}
           >
             <Link to="/profile">
@@ -73,7 +76,7 @@ const Layout = ({ children }: LayoutProps) => {
             </Link>
           </Button>
         </nav>
-        <div className="p-4 border-t border-slate-200">
+        <div className="p-4 border-t border-slate-200 dark:border-slate-800">
           <Logout />
         </div>
       </aside>
@@ -81,28 +84,41 @@ const Layout = ({ children }: LayoutProps) => {
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 sticky top-0 z-10">
-          <div className="flex items-center gap-8 flex-1">
-            <h2 className="text-lg font-semibold text-slate-800 hidden md:block">
+        <header className="h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-4 md:px-8 sticky top-0 z-10">
+          <div className="flex items-center gap-4 md:gap-8 flex-1">
+            <Link to="/" className="lg:hidden text-indigo-600">
+              <CheckSquare className="w-8 h-8" />
+            </Link>
+            <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-200 hidden xl:block">
               {navItems.find(i => i.path === location.pathname)?.label || (location.pathname === "/profile" ? "Profile" : "TaskTracker")}
             </h2>
             <GlobalSearch />
           </div>
-          {user && (
-            <Link to="/profile" className="flex items-center gap-3 hover:opacity-80 transition-opacity ml-4">
-              <div className="text-right hidden sm:block">
-                <p className="text-sm font-semibold text-slate-900">{user.email?.split('@')[0]}</p>
-                <p className="text-xs text-slate-500">Administrator</p>
-              </div>
-              <div className="w-9 h-9 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold text-sm">
-                {user.email?.[0].toUpperCase()}
-              </div>
-            </Link>
-          )}
+          
+          <div className="flex items-center gap-2 md:gap-4 ml-4">
+            <div className="hidden sm:block">
+              <CreateTaskDialog />
+            </div>
+            <div className="flex items-center gap-1 border-l border-slate-200 dark:border-slate-800 pl-2 md:pl-4">
+              <Notifications />
+              <ThemeToggle />
+            </div>
+            {user && (
+              <Link to="/profile" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+                <div className="text-right hidden md:block">
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{user.email?.split('@')[0]}</p>
+                  <p className="text-[10px] text-slate-500 uppercase tracking-wider">Admin</p>
+                </div>
+                <div className="w-9 h-9 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold text-sm shadow-sm">
+                  {user.email?.[0].toUpperCase()}
+                </div>
+              </Link>
+            )}
+          </div>
         </header>
 
         {/* Page Content */}
-        <div className="flex-1 p-8 bg-[#F8FAFC]">
+        <div className="flex-1 p-4 md:p-8 bg-[#F8FAFC] dark:bg-slate-950 overflow-y-auto">
           {children}
         </div>
       </main>
