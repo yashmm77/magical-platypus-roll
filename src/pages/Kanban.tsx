@@ -18,7 +18,7 @@ import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea
 const COLUMNS = [
   { id: "todo", title: "To Do", color: "bg-slate-100" },
   { id: "in_progress", title: "In Progress", color: "bg-blue-50" },
-  { id: "completed", title: "Completed", color: "bg-emerald-50" },
+  { id: "done", title: "Completed", color: "bg-emerald-50" },
 ];
 
 const Kanban = () => {
