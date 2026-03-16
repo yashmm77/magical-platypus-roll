@@ -1,34 +1,57 @@
-import { BrowserRouter as Router, Route, Routes, Navigate } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { Toaster } from "sonner";
 import Layout from "./components/Layout";
 import Index from "./pages/Index";
-import NotFound from "./pages/NotFound";
-import Login from "./pages/Login";
-import Signup from "./pages/Signup";
-import Team from "./pages/Team";
-import Dashboard from "./pages/Dashboard";
-import Tasks from "./pages/Tasks";
 import Kanban from "./pages/Kanban";
-import Profile from "./pages/Profile";
+import TaskList from "./pages/TaskList";
 import TaskDetail from "./pages/TaskDetail";
-import { ProtectedRoute } from "./components/ProtectedRoute";
+import Team from "./pages/Team";
+import Profile from "./pages/Profile";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
+import { useAuth } from "./hooks/useAuth";
 
-const App = () => (
-  <Router>
-    <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route path="/signup" element={<Signup />} />
-      
-      <Route path="/" element={<ProtectedRoute><Layout><Index /></Layout></ProtectedRoute>} />
-      <Route path="/kanban" element={<ProtectedRoute><Layout><Kanban /></Layout></ProtectedRoute>} />
-      <Route path="/team" element={<ProtectedRoute><Layout><Team /></Layout></ProtectedRoute>} />
-      <Route path="/dashboard" element={<ProtectedRoute><Layout><Dashboard /></Layout></ProtectedRoute>} />
-      <Route path="/tasks" element={<ProtectedRoute><Layout><Tasks /></Layout></ProtectedRoute>} />
-      <Route path="/tasks/:id" element={<ProtectedRoute><Layout><TaskDetail /></Layout></ProtectedRoute>} />
-      <Route path="/profile" element={<ProtectedRoute><Layout><Profile /></Layout></ProtectedRoute>} />
-      
-      <Route path="*" element={<NotFound />} />
-    </Routes>
-  </Router>
-);
+function App() {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return null;
+  }
+
+  return (
+    <Router>
+      <Toaster position="top-right" richColors />
+      <Routes>
+        <Route path="/login" element={!user ? <Login /> : <Navigate to="/" />} />
+        <Route path="/register" element={!user ? <Register /> : <Navigate to="/" />} />
+        
+        <Route
+          path="/"
+          element={user ? <Layout><Index /></Layout> : <Navigate to="/login" />}
+        />
+        <Route
+          path="/kanban"
+          element={user ? <Layout><Kanban /></Layout> : <Navigate to="/login" />}
+        />
+        <Route
+          path="/tasks"
+          element={user ? <Layout><TaskList /></Layout> : <Navigate to="/login" />}
+        />
+        <Route
+          path="/tasks/:id"
+          element={user ? <Layout><TaskDetail /></Layout> : <Navigate to="/login" />}
+        />
+        <Route
+          path="/team"
+          element={user ? <Layout><Team /></Layout> : <Navigate to="/login" />}
+        />
+        <Route
+          path="/profile"
+          element={user ? <Layout><Profile /></Layout> : <Navigate to="/login" />}
+        />
+      </Routes>
+    </Router>
+  );
+}
 
 export default App;

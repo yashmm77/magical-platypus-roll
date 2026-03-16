@@ -17,7 +17,8 @@ import {
   History, 
   ArrowLeft,
   Send,
-  Pencil
+  Pencil,
+  AlertCircle
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -33,28 +34,42 @@ const TaskDetail = () => {
   const [comments, setComments] = useState<CommentWithProfile[]>([]);
   const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [commentText, setCommentText] = useState("");
   const [submittingComment, setSubmittingComment] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
 
   const fetchTask = useCallback(async () => {
     if (!id) return;
-    const { data, error } = await supabase
-      .from("tasks")
-      .select(`
-        *,
-        assigned_to_profile:profiles!tasks_assigned_to_fkey(full_name),
-        created_by_profile:profiles!tasks_created_by_fkey(full_name)
-      `)
-      .eq("id", id)
-      .single();
+    
+    try {
+      // First fetch the task basic info
+      const { data, error: taskError } = await supabase
+        .from("tasks")
+        .select(`
+          *,
+          assigned_to_profile:profiles!tasks_assigned_to_fkey(full_name),
+          created_by_profile:profiles!tasks_created_by_fkey(full_name)
+        `)
+        .eq("id", id)
+        .maybeSingle();
 
-    if (!error && data) {
+      if (taskError) throw taskError;
+      
+      if (!data) {
+        setError("Task not found");
+        return;
+      }
+
       setTask({
         ...data,
         assigned_to_name: (data as any).assigned_to_profile?.full_name || "Unassigned",
         created_by_name: (data as any).created_by_profile?.full_name || "Unknown"
       });
+      setError(null);
+    } catch (err: any) {
+      console.error("Error fetching task:", err);
+      setError(err.message || "Failed to load task");
     }
   }, [id]);
 
@@ -154,12 +169,19 @@ const TaskDetail = () => {
     );
   }
 
-  if (!task) {
+  if (error || !task) {
     return (
-      <div className="text-center py-12">
-        <h2 className="text-xl font-semibold text-slate-900">Task not found</h2>
-        <Button variant="link" onClick={() => navigate("/tasks")} className="mt-4">
-          Back to Tasks
+      <div className="text-center py-20 max-w-md mx-auto">
+        <div className="w-16 h-16 bg-rose-50 rounded-full flex items-center justify-center mx-auto mb-6">
+          <AlertCircle className="w-8 h-8 text-rose-500" />
+        </div>
+        <h2 className="text-2xl font-bold text-slate-900 mb-2">{error || "Task not found"}</h2>
+        <p className="text-slate-500 mb-8">The task you're looking for might have been deleted or you don't have permission to view it.</p>
+        <Button 
+          onClick={() => navigate("/tasks")} 
+          className="bg-indigo-600 hover:bg-indigo-700 text-white"
+        >
+          Back to Task List
         </Button>
       </div>
     );
