@@ -35,12 +35,29 @@ const Signup = () => {
 
       if (error) throw error;
 
-      if (data.user && !data.session) {
-        toast.success("Registration successful! Please check your email for verification.");
-        navigate("/login");
-      } else if (data.session) {
-        toast.success("Account created and logged in!");
-        navigate("/");
+      if (data.user) {
+        // Manually create profile record to ensure it exists for task assignments
+        const { error: profileError } = await supabase
+          .from("profiles")
+          .upsert({
+            id: data.user.id,
+            full_name: fullName,
+            email: email,
+            updated_at: new Date().toISOString(),
+          });
+
+        if (profileError) {
+          console.error("Error creating profile:", profileError);
+          // We don't throw here as the user is already created in Auth
+        }
+
+        if (!data.session) {
+          toast.success("Registration successful! Please check your email for verification.");
+          navigate("/login");
+        } else {
+          toast.success("Account created and logged in!");
+          navigate("/");
+        }
       }
     } catch (error: any) {
       const message = error.message || "Failed to sign up";

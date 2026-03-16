@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,26 +28,38 @@ const Tasks = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [taskToDelete, setTaskToDelete] = useState<any>(null);
 
-  const fetchTasks = async () => {
+  const fetchTasks = useCallback(async (showLoading = true) => {
     try {
-      setLoading(true);
+      if (showLoading) setLoading(true);
+      console.log("Fetching tasks from Supabase...");
+      
       const { data, error } = await supabase
         .from("tasks")
-        .select(`*, profiles:assigned_to(full_name, email)`)
+        .select(`
+          *,
+          profiles:assigned_to (
+            id,
+            full_name,
+            email
+          )
+        `)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
+      
+      console.log("Tasks fetched successfully:", data);
       setTasks(data || []);
     } catch (error: any) {
+      console.error("Error fetching tasks:", error);
       toast.error(error.message || "Failed to fetch tasks");
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchTasks();
-  }, []);
+  }, [fetchTasks]);
 
   useEffect(() => {
     let result = [...tasks];
@@ -100,7 +112,9 @@ const Tasks = () => {
     try {
       const { error } = await supabase.from("tasks").delete().eq("id", taskToDelete.id);
       if (error) throw error;
-      setTasks(tasks.filter(t => t.id !== taskToDelete.id));
+      
+      // Optimistic update
+      setTasks(prev => prev.filter(t => t.id !== taskToDelete.id));
       toast.success("Task deleted successfully");
     } catch (error: any) {
       toast.error(error.message);
@@ -110,7 +124,13 @@ const Tasks = () => {
     }
   };
 
-  if (loading) {
+  const getAssigneeDisplay = (task: any) => {
+    // Handle Supabase returning profile as either an object or an array
+    const profile = Array.isArray(task.profiles) ? task.profiles[0] : task.profiles;
+    return profile?.full_name || profile?.email || "Unassigned";
+  };
+
+  if (loading && tasks.length === 0) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
         <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
@@ -123,7 +143,7 @@ const Tasks = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <h1 className="text-2xl font-bold text-slate-800">Task List</h1>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" onClick={fetchTasks} className="text-slate-500">
+          <Button variant="outline" size="icon" onClick={() => fetchTasks(true)} className="text-slate-500">
             <RefreshCw className="w-4 h-4" />
           </Button>
           <Button onClick={() => { setSelectedTask(null); setTaskModalOpen(true); }} className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2">
@@ -209,7 +229,7 @@ const Tasks = () => {
                   <tr key={task.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-6 py-4 text-sm font-medium text-slate-900">{task.title}</td>
                     <td className="px-6 py-4 text-sm text-slate-500">
-                      {task.profiles?.full_name || task.profiles?.email || "Unassigned"}
+                      {getAssigneeDisplay(task)}
                     </td>
                     <td className="px-6 py-4">
                       <Badge variant="outline" className={getStatusBg(task.status)}>
@@ -254,7 +274,12 @@ const Tasks = () => {
         </div>
       </Card>
 
-      <TaskModal open={taskModalOpen} onOpenChange={setTaskModalOpen} task={selectedTask} onSuccess={fetchTasks} />
+      <TaskModal 
+        open={taskModalOpen} 
+        onOpenChange={setTaskModalOpen} 
+        task={selectedTask} 
+        onSuccess={() => fetchTasks(false)} 
+      />
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
