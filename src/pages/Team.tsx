@@ -2,14 +2,23 @@
 
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Users, Mail, Shield, Calendar, MoreVertical, UserPlus, Loader2, AlertCircle, Trash2, User as UserIcon, RefreshCw } from "lucide-react";
+import { Users, Mail, Shield, Calendar, MoreVertical, UserPlus, Loader2, Check, AlertCircle, Trash2, User as UserIcon, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useUsers } from "@/hooks/useUsers";
 import { useRole } from "@/hooks/useRole";
 import { useAuth } from "@/hooks/useAuth";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger, 
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent
+} from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,7 +33,7 @@ const Team = () => {
   const queryClient = useQueryClient();
   const { user: currentUser } = useAuth();
   const { data: users, isLoading, error } = useUsers();
-  const { isAdmin } = useRole();
+  const { isAdmin, role: currentUserRole } = useRole();
   
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
@@ -48,24 +57,21 @@ const Team = () => {
     setInviting(false);
   };
 
-  const handleChangeRole = async (member: any) => {
-    if (!isAdmin || member.id === currentUser?.id) return;
-    
-    const newRole = member.role === 'admin' ? 'member' : 'admin';
-    setUpdatingRoleId(member.id);
-    
+  const handleChangeRole = async (memberId: string, newRole: string) => {
+    if (!isAdmin) return;
+    setUpdatingRoleId(memberId);
     try {
       const { error } = await supabase
         .from('profiles')
         .update({ role: newRole })
-        .eq('id', member.id);
+        .eq('id', memberId);
 
       if (error) throw error;
       
-      toast.success(`${member.full_name || member.email} is now ${newRole}`);
+      toast.success(`Role updated to ${newRole}`);
       await queryClient.invalidateQueries({ queryKey: ["users"] });
     } catch (error: any) {
-      toast.error(error.message || "Failed to update role. Only admins can do this.");
+      toast.error(error.message || "Failed to update role");
     } finally {
       setUpdatingRoleId(null);
     }
@@ -161,9 +167,9 @@ const Team = () => {
                     <div className="flex items-center gap-2 mt-1">
                       <Badge variant="secondary" className={cn(
                         "border-none text-[10px] uppercase tracking-wider",
-                        user.role === 'admin' ? "bg-rose-50 text-rose-700 dark:bg-rose-900/20 dark:text-rose-400" :
-                        user.role === 'member' ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-400" :
-                        "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
+                        user.role === 'admin' ? "bg-blue-100 text-blue-700" :
+                        user.role === 'member' ? "bg-green-100 text-green-700" :
+                        "bg-gray-100 text-gray-600"
                       )}>
                         {user.role || "Member"}
                       </Badge>
@@ -186,10 +192,26 @@ const Team = () => {
                     {isAdmin && user.id !== currentUser?.id && (
                       <>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => handleChangeRole(user)} className="gap-2">
-                          <Shield className="w-4 h-4 text-indigo-500" /> 
-                          Change to {user.role === 'admin' ? 'Member' : 'Admin'}
-                        </DropdownMenuItem>
+                        <DropdownMenuSub>
+                          <DropdownMenuSubTrigger className="gap-2">
+                            <Shield className="w-4 h-4 text-indigo-500" /> Change Role
+                          </DropdownMenuSubTrigger>
+                          <DropdownMenuSubContent>
+                            {['admin', 'member', 'viewer'].map(role => (
+                              <DropdownMenuItem
+                                key={role}
+                                onClick={() => handleChangeRole(user.id, role)}
+                                className={cn(
+                                  "gap-2",
+                                  user.role === role ? 'font-bold text-indigo-600' : ''
+                                )}
+                              >
+                                {role.charAt(0).toUpperCase() + role.slice(1)}
+                                {user.role === role && <Check className="w-3 h-3 ml-auto" />}
+                              </DropdownMenuItem>
+                            ))}
+                          </DropdownMenuSubContent>
+                        </DropdownMenuSub>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem 
                           className="text-rose-600 gap-2"

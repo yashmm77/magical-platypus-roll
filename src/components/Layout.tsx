@@ -22,7 +22,7 @@ interface LayoutProps {
 
 const Layout = ({ children }: LayoutProps) => {
   const { user, loading: authLoading } = useAuth();
-  const { isAdmin, canEdit, isLoading: roleLoading } = useRole();
+  const { isAdmin, canEdit, isViewer, isLoading: roleLoading } = useRole();
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [profile, setProfile] = useState<any>(null);
@@ -161,7 +161,7 @@ const Layout = ({ children }: LayoutProps) => {
           </div>
           
           <div className="flex items-center gap-2 md:gap-4">
-            {canEdit && <CreateTaskDialog />}
+            {!isViewer && <CreateTaskDialog />}
             <div className="flex items-center gap-1 border-l border-slate-200 dark:border-slate-800 pl-2 md:pl-4">
               <Notifications />
               <ThemeToggle />
