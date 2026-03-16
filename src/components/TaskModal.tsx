@@ -117,7 +117,7 @@ export const TaskModal = ({ open, onOpenChange, task, onSuccess }: TaskModalProp
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[500px] w-[95vw] max-h-[90vh] overflow-y-auto">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>{isEditMode ? "Edit Task" : "Create New Task"}</DialogTitle>
@@ -145,7 +145,7 @@ export const TaskModal = ({ open, onOpenChange, task, onSuccess }: TaskModalProp
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="status">Status</Label>
                 <Select
@@ -180,7 +180,7 @@ export const TaskModal = ({ open, onOpenChange, task, onSuccess }: TaskModalProp
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="assignee">Assign To</Label>
                 <Select

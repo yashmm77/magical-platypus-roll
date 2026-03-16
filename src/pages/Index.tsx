@@ -6,7 +6,6 @@ import { supabase } from "@/lib/supabase";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, CheckSquare, Clock, AlertCircle, ListTodo, BarChart3, RefreshCw, User, History, Users } from "lucide-react";
-import { CreateTaskDialog } from "@/components/CreateTaskDialog";
 import { useAuth } from "@/hooks/useAuth";
 import { useTasks } from "@/hooks/useTasks";
 import { useUsers } from "@/hooks/useUsers";
@@ -50,18 +49,6 @@ const Index = () => {
     return tasks.filter(t => t.assigned_to === user.id);
   }, [tasks, user]);
 
-  const priorityData = useMemo(() => {
-    const counts = { high: 0, medium: 0, low: 0 };
-    tasks.forEach(t => {
-      if (t.priority in counts) counts[t.priority as keyof typeof counts]++;
-    });
-    return [
-      { name: 'High', value: counts.high, color: '#ef4444' },
-      { name: 'Medium', value: counts.medium, color: '#f59e0b' },
-      { name: 'Low', value: counts.low, color: '#10b981' },
-    ];
-  }, [tasks]);
-
   const assigneeData = useMemo(() => {
     if (!users || !tasks) return [];
     const counts: Record<string, number> = {};
@@ -94,17 +81,14 @@ const Index = () => {
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Dashboard</h1>
           <p className="text-slate-500 mt-1">Welcome back, {user?.email?.split('@')[0]}</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" onClick={fetchData} className="text-slate-500">
-            <RefreshCw className="w-4 h-4" />
-          </Button>
-          <CreateTaskDialog onTaskCreated={fetchData} />
-        </div>
+        <Button variant="outline" size="icon" onClick={fetchData} className="text-slate-500">
+          <RefreshCw className="w-4 h-4" />
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -216,7 +200,7 @@ const Index = () => {
               <TabsContent value="recent" className="mt-0">
                 <div className="space-y-3 text-left max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
                   {tasks.length === 0 ? (
-                    <p className="text-center text-slate-400 py-8">No tasks yet. Create one above!</p>
+                    <p className="text-center text-slate-400 py-8">No tasks yet.</p>
                   ) : (
                     tasks.map((task) => (
                       <TaskCard key={task.id} task={task} onClick={() => navigate(`/tasks/${task.id}`)} />

@@ -94,8 +94,8 @@ const Layout = ({ children }: LayoutProps) => {
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <header className="h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-4 md:px-8 sticky top-0 z-10">
-          <div className="flex items-center gap-2 md:gap-8 flex-1">
+        <header className="h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-4 md:px-8 sticky top-0 z-50">
+          <div className="flex items-center gap-2 md:gap-4 flex-1">
             {/* Mobile Menu Trigger */}
             <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
               <SheetTrigger asChild>
@@ -115,29 +115,19 @@ const Layout = ({ children }: LayoutProps) => {
               <CheckSquare className="w-8 h-8" />
             </Link>
             
-            <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-200 hidden xl:block">
-              {navItems.find(i => i.path === location.pathname)?.label || (location.pathname === "/profile" ? "Profile" : "TaskTracker")}
-            </h2>
-            
             <div className="flex-1 max-w-md hidden sm:block">
               <GlobalSearch />
             </div>
           </div>
           
-          <div className="flex items-center gap-2 md:gap-4 ml-4">
-            <div className="hidden md:block">
-              <CreateTaskDialog />
-            </div>
+          <div className="flex items-center gap-2 md:gap-4">
+            <CreateTaskDialog />
             <div className="flex items-center gap-1 border-l border-slate-200 dark:border-slate-800 pl-2 md:pl-4">
               <Notifications />
               <ThemeToggle />
             </div>
             {user && (
               <Link to="/profile" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-                <div className="text-right hidden md:block">
-                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{user.email?.split('@')[0]}</p>
-                  <p className="text-[10px] text-slate-500 uppercase tracking-wider">Admin</p>
-                </div>
                 <div className="w-9 h-9 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold text-sm shadow-sm">
                   {user.email?.[0].toUpperCase()}
                 </div>
