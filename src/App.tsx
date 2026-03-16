@@ -8,6 +8,7 @@ import Calendar from "./pages/Calendar";
 import TaskDetail from "./pages/TaskDetail";
 import Team from "./pages/Team";
 import Profile from "./pages/Profile";
+import Reports from "./pages/Reports";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import { useAuth } from "./hooks/useAuth";
@@ -41,6 +42,10 @@ function App() {
         <Route
           path="/calendar"
           element={user ? <Layout><Calendar /></Layout> : <Navigate to="/login" />}
+        />
+        <Route
+          path="/reports"
+          element={user ? <Layout><Reports /></Layout> : <Navigate to="/login" />}
         />
         <Route
           path="/tasks/:id"

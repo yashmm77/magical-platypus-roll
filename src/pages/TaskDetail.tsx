@@ -127,6 +127,43 @@ const TaskDetail = () => {
       setLoading(false);
     };
     init();
+
+    // Real-time subscriptions
+    const commentsChannel = supabase
+      .channel(`task-comments-${id}`)
+      .on('postgres_changes', { 
+        event: 'INSERT', 
+        schema: 'public', 
+        table: 'comments',
+        filter: `task_id=eq.${id}`
+      }, fetchComments)
+      .subscribe();
+
+    const logsChannel = supabase
+      .channel(`task-logs-${id}`)
+      .on('postgres_changes', { 
+        event: 'INSERT', 
+        schema: 'public', 
+        table: 'activity_logs',
+        filter: `task_id=eq.${id}`
+      }, fetchLogs)
+      .subscribe();
+
+    const taskChannel = supabase
+      .channel(`task-updates-${id}`)
+      .on('postgres_changes', { 
+        event: 'UPDATE', 
+        schema: 'public', 
+        table: 'tasks',
+        filter: `id=eq.${id}`
+      }, fetchTask)
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(commentsChannel);
+      supabase.removeChannel(logsChannel);
+      supabase.removeChannel(taskChannel);
+    };
   }, [id, fetchTask, fetchComments, fetchLogs]);
 
   const handleAddComment = async (e: React.FormEvent) => {
@@ -146,7 +183,7 @@ const TaskDetail = () => {
       if (error) throw error;
       setCommentText("");
       toast.success("Comment added");
-      fetchComments();
+      // fetchComments is handled by real-time subscription
     } catch (error: any) {
       toast.error(error.message || "Failed to add comment");
     } finally {

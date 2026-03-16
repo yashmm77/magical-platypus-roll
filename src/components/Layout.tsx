@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, CheckSquare, User, Settings, Trello, List, Calendar, Menu } from 'lucide-react';
+import { LayoutDashboard, CheckSquare, User, Settings, Trello, List, Calendar, Menu, BarChart3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import Logout from './Logout';
@@ -32,6 +32,7 @@ const Layout = ({ children }: LayoutProps) => {
     { path: "/kanban", label: "Kanban Board", icon: Trello },
     { path: "/tasks", label: "Task List", icon: List },
     { path: "/calendar", label: "Calendar", icon: Calendar },
+    { path: "/reports", label: "Reports", icon: BarChart3 },
     { path: "/team", label: "Team", icon: User },
   ];
 
