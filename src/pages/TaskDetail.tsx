@@ -183,7 +183,6 @@ const TaskDetail = () => {
       if (error) throw error;
       setCommentText("");
       toast.success("Comment added");
-      // fetchComments is handled by real-time subscription
     } catch (error: any) {
       toast.error(error.message || "Failed to add comment");
     } finally {
@@ -212,7 +211,7 @@ const TaskDetail = () => {
     switch (status) {
       case "todo": return "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300";
       case "in_progress": return "bg-blue-50 text-blue-700 border-blue-100 dark:bg-blue-900/20 dark:text-blue-400";
-      case "done": return "bg-emerald-50 text-emerald-700 border-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400";
+      case "completed": return "bg-emerald-50 text-emerald-700 border-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400";
       default: return "bg-slate-100 text-slate-700";
     }
   };
