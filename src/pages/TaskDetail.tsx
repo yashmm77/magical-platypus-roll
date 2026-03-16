@@ -43,28 +43,39 @@ const TaskDetail = () => {
     if (!id) return;
     
     try {
-      // First fetch the task basic info
-      const { data, error: taskError } = await supabase
+      // Fetch task first without complex joins to ensure it exists
+      const { data: taskData, error: taskError } = await supabase
         .from("tasks")
-        .select(`
-          *,
-          assigned_to_profile:profiles!tasks_assigned_to_fkey(full_name),
-          created_by_profile:profiles!tasks_created_by_fkey(full_name)
-        `)
+        .select("*")
         .eq("id", id)
         .maybeSingle();
 
       if (taskError) throw taskError;
       
-      if (!data) {
+      if (!taskData) {
         setError("Task not found");
         return;
       }
 
+      // Fetch profile names separately for better reliability
+      const profileIds = [taskData.assigned_to, taskData.created_by].filter(Boolean);
+      let profileMap: Record<string, string> = {};
+
+      if (profileIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("id, full_name")
+          .in("id", profileIds);
+        
+        profiles?.forEach(p => {
+          profileMap[p.id] = p.full_name;
+        });
+      }
+
       setTask({
-        ...data,
-        assigned_to_name: (data as any).assigned_to_profile?.full_name || "Unassigned",
-        created_by_name: (data as any).created_by_profile?.full_name || "Unknown"
+        ...taskData,
+        assigned_to_name: profileMap[taskData.assigned_to] || "Unassigned",
+        created_by_name: profileMap[taskData.created_by] || "Unknown"
       });
       setError(null);
     } catch (err: any) {
@@ -75,27 +86,35 @@ const TaskDetail = () => {
 
   const fetchComments = useCallback(async () => {
     if (!id) return;
-    const { data, error } = await supabase
-      .from("comments")
-      .select(`
-        *,
-        profiles(full_name)
-      `)
-      .eq("task_id", id)
-      .order("created_at", { ascending: true });
+    try {
+      const { data, error } = await supabase
+        .from("comments")
+        .select(`
+          *,
+          profiles(full_name)
+        `)
+        .eq("task_id", id)
+        .order("created_at", { ascending: true });
 
-    if (!error && data) setComments(data as any);
+      if (!error && data) setComments(data as any);
+    } catch (err) {
+      console.error("Error fetching comments:", err);
+    }
   }, [id]);
 
   const fetchLogs = useCallback(async () => {
     if (!id) return;
-    const { data, error } = await supabase
-      .from("activity_logs")
-      .select("*")
-      .eq("task_id", id)
-      .order("created_at", { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from("activity_logs")
+        .select("*")
+        .eq("task_id", id)
+        .order("created_at", { ascending: false });
 
-    if (!error && data) setLogs(data);
+      if (!error && data) setLogs(data);
+    } catch (err) {
+      console.error("Error fetching logs:", err);
+    }
   }, [id]);
 
   useEffect(() => {
@@ -106,9 +125,8 @@ const TaskDetail = () => {
     };
     init();
 
-    // Real-time subscriptions
     const taskChannel = supabase
-      .channel(`task-${id}`)
+      .channel(`task-detail-${id}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks', filter: `id=eq.${id}` }, fetchTask)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comments', filter: `task_id=eq.${id}` }, fetchComments)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'activity_logs', filter: `task_id=eq.${id}` }, fetchLogs)
