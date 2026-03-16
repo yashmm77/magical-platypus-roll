@@ -15,8 +15,7 @@ export const useTasks = () => {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      console.log("Tasks fetched:", data);
-      return data;
+      return data as Task[];
     },
   });
 
@@ -41,10 +40,30 @@ export const useTasks = () => {
     },
   });
 
+  const deleteTaskMutation = useMutation({
+    mutationFn: async (taskId: string) => {
+      const { error } = await supabase
+        .from("tasks")
+        .delete()
+        .eq("id", taskId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      toast.success("Task deleted successfully!");
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Failed to delete task");
+    },
+  });
+
   return {
-    tasks: (tasksQuery.data as Task[]) || [],
+    tasks: tasksQuery.data || [],
     isLoading: tasksQuery.isLoading,
     createTask: createTaskMutation.mutate,
     isCreating: createTaskMutation.isPending,
+    deleteTask: deleteTaskMutation.mutate,
+    isDeleting: deleteTaskMutation.isPending,
   };
 };
