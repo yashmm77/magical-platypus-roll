@@ -33,7 +33,7 @@ const Team = () => {
   const queryClient = useQueryClient();
   const { user: currentUser } = useAuth();
   const { data: users, isLoading, error } = useUsers();
-  const { isAdmin, role: currentUserRole } = useRole();
+  const { isAdmin } = useRole();
   
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
@@ -44,6 +44,12 @@ const Team = () => {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<{ id: string, name: string } | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  const roleBadgeStyles: Record<string, string> = {
+    admin: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+    member: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+    viewer: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
+  };
 
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,6 +75,7 @@ const Team = () => {
       if (error) throw error;
       
       toast.success(`Role updated to ${newRole}`);
+      // Invalidate and refetch to ensure UI updates
       await queryClient.invalidateQueries({ queryKey: ["users"] });
     } catch (error: any) {
       toast.error(error.message || "Failed to update role");
@@ -167,9 +174,7 @@ const Team = () => {
                     <div className="flex items-center gap-2 mt-1">
                       <Badge variant="secondary" className={cn(
                         "border-none text-[10px] uppercase tracking-wider",
-                        user.role === 'admin' ? "bg-blue-100 text-blue-700" :
-                        user.role === 'member' ? "bg-green-100 text-green-700" :
-                        "bg-gray-100 text-gray-600"
+                        roleBadgeStyles[user.role] || roleBadgeStyles.member
                       )}>
                         {user.role || "Member"}
                       </Badge>
