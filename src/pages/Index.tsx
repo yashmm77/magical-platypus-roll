@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +14,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recha
 import { Button } from "@/components/ui/button";
 
 const Index = () => {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { tasks, isLoading: tasksLoading } = useTasks();
   const { data: users } = useUsers();
@@ -43,20 +45,6 @@ const Index = () => {
       { name: 'Overdue', value: summary.overdue_tasks, color: '#ef4444' },
     ].filter(item => item.value > 0);
   }, [summary]);
-
-  const assigneeChartData = useMemo(() => {
-    if (!tasks || !users) return [];
-    const counts: Record<string, number> = {};
-    
-    tasks.forEach((task: any) => {
-      const assigneeId = task.assigned_to;
-      const user = users.find(u => u.id === assigneeId);
-      const name = user?.full_name || user?.email || "Unassigned";
-      counts[name] = (counts[name] || 0) + 1;
-    });
-
-    return Object.entries(counts).map(([name, count]) => ({ name, value: count }));
-  }, [tasks, users]);
 
   if (loading || tasksLoading) {
     return (
@@ -161,9 +149,13 @@ const Index = () => {
               <p className="text-center text-slate-400 py-8">No tasks yet. Create one above!</p>
             ) : (
               tasks.map((task) => (
-                <div key={task.id} className="bg-white rounded-xl shadow-sm p-4 flex items-center justify-between border border-slate-100 hover:border-indigo-100 transition-colors">
+                <div 
+                  key={task.id} 
+                  onClick={() => navigate(`/tasks/${task.id}`)}
+                  className="bg-white rounded-xl shadow-sm p-4 flex items-center justify-between border border-slate-100 hover:border-indigo-200 hover:shadow-md transition-all cursor-pointer group"
+                >
                   <div>
-                    <p className="font-semibold text-slate-800">{task.title}</p>
+                    <p className="font-semibold text-slate-800 group-hover:text-indigo-600 transition-colors">{task.title}</p>
                     {task.description && <p className="text-sm text-slate-500 mt-1 line-clamp-1">{task.description}</p>}
                   </div>
                   <div className="flex gap-2">

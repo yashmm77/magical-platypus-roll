@@ -8,7 +8,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Separator } from "@/components/ui/separator";
 import { 
   Loader2, 
   Calendar, 
@@ -35,65 +34,72 @@ const TaskDetail = () => {
   const [commentText, setCommentText] = useState("");
   const [submittingComment, setSubmittingComment] = useState(false);
 
-  const fetchData = useCallback(async () => {
+  const fetchTask = useCallback(async () => {
     if (!id) return;
-    setLoading(true);
-    try {
-      // Fetch Task with joined profile names
-      const { data: taskData, error: taskError } = await supabase
-        .from("tasks")
-        .select(`
-          *,
-          assigned_to_profile:profiles!tasks_assigned_to_fkey(full_name),
-          created_by_profile:profiles!tasks_created_by_fkey(full_name)
-        `)
-        .eq("id", id)
-        .single();
+    const { data, error } = await supabase
+      .from("tasks")
+      .select(`
+        *,
+        assigned_to_profile:profiles!tasks_assigned_to_fkey(full_name),
+        created_by_profile:profiles!tasks_created_by_fkey(full_name)
+      `)
+      .eq("id", id)
+      .single();
 
-      if (taskError) throw taskError;
-
-      // Map the joined data to a flatter structure
-      const formattedTask = {
-        ...taskData,
-        assigned_to_name: (taskData as any).assigned_to_profile?.full_name || "Unassigned",
-        created_by_name: (taskData as any).created_by_profile?.full_name || "Unknown"
-      };
-      setTask(formattedTask);
-
-      // Fetch Comments
-      const { data: commentsData, error: commentsError } = await supabase
-        .from("comments")
-        .select(`
-          *,
-          profiles(full_name)
-        `)
-        .eq("task_id", id)
-        .order("created_at", { ascending: true });
-
-      if (commentsError) throw commentsError;
-      setComments(commentsData as any);
-
-      // Fetch Activity Logs
-      const { data: logsData, error: logsError } = await supabase
-        .from("activity_logs")
-        .select("*")
-        .eq("task_id", id)
-        .order("created_at", { ascending: false });
-
-      if (logsError) throw logsError;
-      setLogs(logsData);
-
-    } catch (error: any) {
-      console.error("Error fetching task details:", error);
-      toast.error(error.message || "Failed to load task details");
-    } finally {
-      setLoading(false);
+    if (!error && data) {
+      setTask({
+        ...data,
+        assigned_to_name: (data as any).assigned_to_profile?.full_name || "Unassigned",
+        created_by_name: (data as any).created_by_profile?.full_name || "Unknown"
+      });
     }
   }, [id]);
 
+  const fetchComments = useCallback(async () => {
+    if (!id) return;
+    const { data, error } = await supabase
+      .from("comments")
+      .select(`
+        *,
+        profiles(full_name)
+      `)
+      .eq("task_id", id)
+      .order("created_at", { ascending: true });
+
+    if (!error && data) setComments(data as any);
+  }, [id]);
+
+  const fetchLogs = useCallback(async () => {
+    if (!id) return;
+    const { data, error } = await supabase
+      .from("activity_logs")
+      .select("*")
+      .eq("task_id", id)
+      .order("created_at", { ascending: false });
+
+    if (!error && data) setLogs(data);
+  }, [id]);
+
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    const init = async () => {
+      setLoading(true);
+      await Promise.all([fetchTask(), fetchComments(), fetchLogs()]);
+      setLoading(false);
+    };
+    init();
+
+    // Real-time subscriptions
+    const taskChannel = supabase
+      .channel(`task-${id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks', filter: `id=eq.${id}` }, fetchTask)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comments', filter: `task_id=eq.${id}` }, fetchComments)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'activity_logs', filter: `task_id=eq.${id}` }, fetchLogs)
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(taskChannel);
+    };
+  }, [id, fetchTask, fetchComments, fetchLogs]);
 
   const handleAddComment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -110,10 +116,8 @@ const TaskDetail = () => {
         });
 
       if (error) throw error;
-
       setCommentText("");
       toast.success("Comment added");
-      fetchData(); // Refresh to show new comment
     } catch (error: any) {
       toast.error(error.message || "Failed to add comment");
     } finally {
@@ -170,9 +174,7 @@ const TaskDetail = () => {
       </Button>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Left Column: Task Info & Comments */}
         <div className="lg:col-span-2 space-y-8">
-          {/* Task Info Section */}
           <Card className="border-none shadow-sm bg-white">
             <CardHeader className="pb-4">
               <div className="flex items-center gap-3 mb-4">
@@ -228,7 +230,6 @@ const TaskDetail = () => {
             </CardContent>
           </Card>
 
-          {/* Comments Section */}
           <div className="space-y-4">
             <h3 className="text-xl font-semibold text-slate-900 flex items-center gap-2">
               <MessageSquare className="w-5 h-5 text-indigo-500" />
@@ -255,7 +256,6 @@ const TaskDetail = () => {
               )}
             </div>
 
-            {/* Add Comment Form */}
             <form onSubmit={handleAddComment} className="mt-6 space-y-3">
               <Textarea 
                 placeholder="Write a comment..." 
@@ -277,7 +277,6 @@ const TaskDetail = () => {
           </div>
         </div>
 
-        {/* Right Column: Activity Log */}
         <div className="space-y-4">
           <h3 className="text-xl font-semibold text-slate-900 flex items-center gap-2">
             <History className="w-5 h-5 text-indigo-500" />

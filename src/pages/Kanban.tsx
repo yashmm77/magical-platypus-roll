@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Plus, Calendar, User, RefreshCw } from "lucide-react";
+import { Loader2, Plus, Calendar, User, RefreshCw, Eye } from "lucide-react";
 import { TaskModal } from "@/components/TaskModal";
 import { useUsers } from "@/hooks/useUsers";
 import { toast } from "sonner";
@@ -18,6 +19,7 @@ const COLUMNS = [
 ];
 
 const Kanban = () => {
+  const navigate = useNavigate();
   const { data: users } = useUsers();
   const [tasks, setTasks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,21 +45,9 @@ const Kanban = () => {
 
   useEffect(() => {
     fetchTasks();
-
-    // Subscribe to real-time changes
     const channel = supabase
-      .channel('schema-db-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'tasks'
-        },
-        () => {
-          fetchTasks();
-        }
-      )
+      .channel('kanban-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, fetchTasks)
       .subscribe();
 
     return () => {
@@ -141,12 +131,11 @@ const Kanban = () => {
                 .map((task) => (
                   <Card 
                     key={task.id} 
-                    className="border-none shadow-sm bg-white hover:shadow-md transition-all cursor-pointer group"
-                    onClick={() => { setSelectedTask(task); setModalOpen(true); }}
+                    className="border-none shadow-sm bg-white hover:shadow-md transition-all group relative"
                   >
                     <CardContent className="p-4 space-y-3">
                       <div className="flex items-start justify-between gap-2">
-                        <h3 className="font-medium text-slate-900 leading-tight">{task.title}</h3>
+                        <h3 className="font-medium text-slate-900 leading-tight group-hover:text-indigo-600 transition-colors">{task.title}</h3>
                         <Badge variant="outline" className={`text-[10px] uppercase tracking-wider px-1.5 py-0 ${getPriorityColor(task.priority)}`}>
                           {task.priority}
                         </Badge>
@@ -166,6 +155,24 @@ const Kanban = () => {
                             <User className="w-3 h-3" />
                             {getAssigneeName(task.assigned_to)}
                           </div>
+                        </div>
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-7 w-7 text-indigo-600 hover:bg-indigo-50"
+                            onClick={() => navigate(`/tasks/${task.id}`)}
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-7 w-7 text-slate-400 hover:bg-slate-100"
+                            onClick={() => { setSelectedTask(task); setModalOpen(true); }}
+                          >
+                            <Plus className="w-3.5 h-3.5 rotate-45" />
+                          </Button>
                         </div>
                       </div>
                     </CardContent>

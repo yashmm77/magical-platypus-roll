@@ -15,6 +15,7 @@ import { format } from "date-fns";
 import { useUsers } from "@/hooks/useUsers";
 import { toast } from "sonner";
 import { Task } from "@/types";
+import { logActivity } from "@/utils/activity";
 
 interface TaskModalProps {
   open: boolean;
@@ -67,9 +68,7 @@ export const TaskModal = ({ open, onOpenChange, task, onSuccess }: TaskModalProp
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        throw new Error("You must be logged in to manage tasks");
-      }
+      if (!user) throw new Error("You must be logged in");
 
       if (isEditMode && task) {
         const { error } = await supabase
@@ -85,9 +84,10 @@ export const TaskModal = ({ open, onOpenChange, task, onSuccess }: TaskModalProp
           .eq("id", task.id);
 
         if (error) throw error;
+        await logActivity(task.id, `Updated task: ${formData.title}`);
         toast.success("Task updated successfully!");
       } else {
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from("tasks")
           .insert({
             title: formData.title,
@@ -97,18 +97,19 @@ export const TaskModal = ({ open, onOpenChange, task, onSuccess }: TaskModalProp
             assigned_to: formData.assigned_to || null,
             due_date: formData.due_date,
             created_by: user.id,
-          });
+          })
+          .select()
+          .single();
 
         if (error) throw error;
+        await logActivity(data.id, `Created task: ${formData.title}`);
         toast.success("Task created successfully!");
       }
 
       onOpenChange(false);
-      if (onSuccess) {
-        onSuccess();
-      }
+      if (onSuccess) onSuccess();
     } catch (error: any) {
-      toast.error(error.message || `Failed to ${isEditMode ? "update" : "create"} task`);
+      toast.error(error.message || "Failed to save task");
     } finally {
       setIsSubmitting(false);
     }
@@ -149,9 +150,7 @@ export const TaskModal = ({ open, onOpenChange, task, onSuccess }: TaskModalProp
                 <Label htmlFor="status">Status</Label>
                 <Select
                   value={formData.status}
-                  onValueChange={(val: "todo" | "in_progress" | "completed") =>
-                    setFormData({ ...formData, status: val })
-                  }
+                  onValueChange={(val: any) => setFormData({ ...formData, status: val })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select status" />
@@ -167,9 +166,7 @@ export const TaskModal = ({ open, onOpenChange, task, onSuccess }: TaskModalProp
                 <Label htmlFor="priority">Priority</Label>
                 <Select
                   value={formData.priority}
-                  onValueChange={(val: "low" | "medium" | "high") =>
-                    setFormData({ ...formData, priority: val })
-                  }
+                  onValueChange={(val: any) => setFormData({ ...formData, priority: val })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select priority" />
