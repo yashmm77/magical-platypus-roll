@@ -1,28 +1,67 @@
-import React from 'react';
+"use client";
+
+import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, CheckSquare, User, Settings, Trello, List, Calendar, Menu, BarChart3 } from 'lucide-react';
+import { LayoutDashboard, CheckSquare, User, Settings, Trello, List, Calendar, Menu, BarChart3, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/lib/supabase';
 import Logout from './Logout';
 import { GlobalSearch } from './GlobalSearch';
 import { ThemeToggle } from './ThemeToggle';
 import { Notifications } from './Notifications';
 import { CreateTaskDialog } from './CreateTaskDialog';
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 interface LayoutProps {
   children: React.ReactNode;
 }
 
 const Layout = ({ children }: LayoutProps) => {
-  const { user, loading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const location = useLocation();
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [profile, setProfile] = useState<any>(null);
+  const [profileLoading, setProfileLoading] = useState(true);
+  const contentRef = React.useRef<HTMLDivElement>(null);
 
-  if (loading) {
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (!user) {
+        setProfileLoading(false);
+        return;
+      }
+      
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+        
+        if (!error) setProfile(data);
+      } catch (err) {
+        console.error("Error fetching profile:", err);
+      } finally {
+        setProfileLoading(false);
+      }
+    };
+
+    fetchProfile();
+  }, [user]);
+
+  // Reset scroll position on route change
+  useEffect(() => {
+    if (contentRef.current) {
+      contentRef.current.scrollTo(0, 0);
+    }
+  }, [location.pathname]);
+
+  if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC] dark:bg-slate-950">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+        <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
       </div>
     );
   }
@@ -129,8 +168,19 @@ const Layout = ({ children }: LayoutProps) => {
             </div>
             {user && (
               <Link to="/profile" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-                <div className="w-9 h-9 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold text-sm shadow-sm">
-                  {user.email?.[0].toUpperCase()}
+                <Avatar className="w-9 h-9 border-2 border-indigo-100 dark:border-indigo-900/30">
+                  <AvatarImage src={profile?.avatar_url} />
+                  <AvatarFallback className="bg-indigo-600 text-white text-xs font-bold">
+                    {profile?.full_name?.[0]?.toUpperCase() || user.email?.[0]?.toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="hidden md:block text-left">
+                  <p className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate max-w-[100px]">
+                    {profile?.full_name || user.email?.split('@')[0]}
+                  </p>
+                  <p className="text-[10px] text-slate-500 truncate max-w-[100px]">
+                    {profile?.role || 'Member'}
+                  </p>
                 </div>
               </Link>
             )}
@@ -143,7 +193,11 @@ const Layout = ({ children }: LayoutProps) => {
         </div>
 
         {/* Page Content */}
-        <div className="flex-1 p-4 md:p-8 bg-[#F8FAFC] dark:bg-slate-950 overflow-y-auto">
+        <div 
+          ref={contentRef}
+          key={location.pathname}
+          className="flex-1 p-4 md:p-8 bg-[#F8FAFC] dark:bg-slate-950 overflow-y-auto animate-in fade-in duration-500"
+        >
           {children}
         </div>
       </main>
