@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Users, Plus, Mail, Shield, Calendar, MoreVertical, UserPlus, Loader2, Check, AlertCircle } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Users, Plus, Mail, Shield, Calendar, MoreVertical, UserPlus, Loader2, Check, AlertCircle, Trash2, User as UserIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -18,18 +19,26 @@ import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 
 const Team = () => {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: users, isLoading, error } = useUsers();
   const { isAdmin } = useRole();
+  
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviting, setInviting] = useState(false);
+  
   const [updatingRoleId, setUpdatingRoleId] = useState<string | null>(null);
+  
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<{ id: string, name: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isAdmin) return;
     setInviting(true);
+    // Simulate invitation logic
     await new Promise(resolve => setTimeout(resolve, 1000));
     toast.success(`Invitation sent to ${inviteEmail}`);
     setInviteEmail("");
@@ -49,12 +58,34 @@ const Team = () => {
       if (error) throw error;
       
       toast.success(`Role updated to ${newRole}`);
-      // Invalidate both users and current role to ensure UI updates everywhere
-      queryClient.invalidateQueries({ queryKey: ["users"] });
+      // Force a refetch of the users list
+      await queryClient.invalidateQueries({ queryKey: ["users"] });
     } catch (error: any) {
       toast.error(error.message || "Failed to update role");
     } finally {
       setUpdatingRoleId(null);
+    }
+  };
+
+  const handleRemoveUser = async () => {
+    if (!userToDelete || !isAdmin) return;
+    setDeleting(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', userToDelete.id);
+
+      if (error) throw error;
+      
+      toast.success(`${userToDelete.name} removed from team`);
+      await queryClient.invalidateQueries({ queryKey: ["users"] });
+      setDeleteConfirmOpen(false);
+    } catch (error: any) {
+      toast.error(error.message || "Failed to remove user");
+    } finally {
+      setDeleting(false);
+      setUserToDelete(null);
     }
   };
 
@@ -128,12 +159,14 @@ const Team = () => {
                 {isAdmin && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="text-slate-400">
+                      <Button variant="ghost" size="icon" className="text-slate-400 hover:text-indigo-600">
                         <MoreVertical className="w-4 h-4" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-48">
-                      <DropdownMenuItem>View Profile</DropdownMenuItem>
+                    <DropdownMenuContent align="end" className="w-56">
+                      <DropdownMenuItem onClick={() => navigate('/profile')} className="gap-2">
+                        <UserIcon className="w-4 h-4" /> View Profile
+                      </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <div className="px-2 py-1.5 text-xs font-semibold text-slate-500">Change Role</div>
                       <DropdownMenuItem onClick={() => handleUpdateRole(user.id, 'admin')} className="gap-2">
@@ -146,7 +179,15 @@ const Team = () => {
                         <Shield className="w-4 h-4 text-slate-500" /> Viewer {user.role === 'viewer' && <Check className="w-3 h-3 ml-auto" />}
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem className="text-rose-600">Remove from Team</DropdownMenuItem>
+                      <DropdownMenuItem 
+                        className="text-rose-600 gap-2"
+                        onClick={() => {
+                          setUserToDelete({ id: user.id, name: user.full_name || user.email });
+                          setDeleteConfirmOpen(true);
+                        }}
+                      >
+                        <Trash2 className="w-4 h-4" /> Remove from Team
+                      </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 )}
@@ -176,6 +217,7 @@ const Team = () => {
         ))}
       </div>
 
+      {/* Invite Dialog */}
       <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <form onSubmit={handleInvite}>
@@ -209,6 +251,27 @@ const Team = () => {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="text-rose-600">Remove Team Member</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to remove <strong>{userToDelete?.name}</strong> from the team? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="ghost" onClick={() => setDeleteConfirmOpen(false)} disabled={deleting}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleRemoveUser} disabled={deleting}>
+              {deleting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Remove Member
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
