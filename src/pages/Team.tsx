@@ -163,7 +163,7 @@ const Team = () => {
       case 'admin':
         return <Badge className="bg-indigo-100 text-indigo-700 border-indigo-200 hover:bg-indigo-100">Admin</Badge>;
       case 'viewer':
-        return <Badge className="bg-amber-100 text-amber-700 border-amber-200 hover:bg-amber-100">Viewer</Badge>;
+        return <Badge className="bg-yellow-100 text-yellow-700 border-yellow-200 hover:bg-yellow-100">Viewer</Badge>;
       default:
         return <Badge className="bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-100">Member</Badge>;
     }
@@ -307,7 +307,6 @@ const Team = () => {
                   <SelectContent>
                     <SelectItem value="member">Member</SelectItem>
                     <SelectItem value="viewer">Viewer</SelectItem>
-                    <SelectItem value="admin">Admin</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
