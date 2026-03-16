@@ -11,6 +11,7 @@ import Profile from "./pages/Profile";
 import Reports from "./pages/Reports";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import OrganizationSettings from "./pages/OrganizationSettings";
 import { useAuth } from "./hooks/useAuth";
 
 function App() {
@@ -55,9 +56,12 @@ function App() {
           path="/team"
           element={user ? <Layout><Team /></Layout> : <Navigate to="/login" />}
         />
-        <Route
-          path="/profile"
+        <Route          path="/profile"
           element={user ? <Layout><Profile /></Layout> : <Navigate to="/login" />}
+        />
+        <Route
+          path="/organization"
+          element={user ? <Layout><OrganizationSettings /></Layout> : <Navigate to="/login" />}
         />
       </Routes>
     </Router>
