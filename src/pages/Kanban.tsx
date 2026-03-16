@@ -29,7 +29,7 @@ const Kanban = () => {
     try {
       const { data, error } = await supabase
         .from("tasks")
-        .select(`*, profiles:assigned_to(full_name, email)`)
+        .select("*")
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -78,6 +78,12 @@ const Kanban = () => {
       case "low": return "text-emerald-600 bg-emerald-50 border-emerald-100";
       default: return "text-slate-600 bg-slate-50 border-slate-100";
     }
+  };
+
+  const getAssigneeName = (userId: string | null) => {
+    if (!userId) return "Unassigned";
+    const user = users?.find(u => u.id === userId);
+    return user?.full_name?.split(' ')[0] || user?.email?.split('@')[0] || "Unknown";
   };
 
   if (loading) {
@@ -158,7 +164,7 @@ const Kanban = () => {
                           </div>
                           <div className="flex items-center gap-1 text-[11px] text-slate-400">
                             <User className="w-3 h-3" />
-                            {task.profiles?.full_name?.split(' ')[0] || "Unassigned"}
+                            {getAssigneeName(task.assigned_to)}
                           </div>
                         </div>
                       </div>

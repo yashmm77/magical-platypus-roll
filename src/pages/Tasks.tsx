@@ -35,14 +35,7 @@ const Tasks = () => {
       
       const { data, error } = await supabase
         .from("tasks")
-        .select(`
-          *,
-          profiles:assigned_to (
-            id,
-            full_name,
-            email
-          )
-        `)
+        .select("*")
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -125,9 +118,9 @@ const Tasks = () => {
   };
 
   const getAssigneeDisplay = (task: any) => {
-    // Handle Supabase returning profile as either an object or an array
-    const profile = Array.isArray(task.profiles) ? task.profiles[0] : task.profiles;
-    return profile?.full_name || profile?.email || "Unassigned";
+    if (!task.assigned_to) return "Unassigned";
+    const user = users?.find(u => u.id === task.assigned_to);
+    return user?.full_name || user?.email || "Unknown User";
   };
 
   if (loading && tasks.length === 0) {
