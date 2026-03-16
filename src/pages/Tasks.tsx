@@ -79,7 +79,7 @@ const Tasks = () => {
     switch (status) {
       case "todo": return "bg-slate-100 text-slate-700";
       case "in_progress": return "bg-blue-50 text-blue-700";
-      case "completed": return "bg-emerald-50 text-emerald-700";
+      case "done": return "bg-emerald-50 text-emerald-700";
       default: return "bg-slate-100 text-slate-700";
     }
   };
@@ -120,7 +120,7 @@ const Tasks = () => {
             <SelectItem value="all">All Statuses</SelectItem>
             <SelectItem value="todo">To Do</SelectItem>
             <SelectItem value="in_progress">In Progress</SelectItem>
-            <SelectItem value="completed">Completed</SelectItem>
+            <SelectItem value="done">Done</SelectItem>
           </SelectContent>
         </Select>
         <Select value={priorityFilter} onValueChange={setPriorityFilter}>

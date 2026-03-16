@@ -51,7 +51,7 @@ const Reports = () => {
         return {
           name: dayStr,
           created: dayTasks.length,
-          completed: dayTasks.filter(t => t.status === 'completed').length
+          completed: dayTasks.filter(t => t.status === 'done').length
         };
       });
 
