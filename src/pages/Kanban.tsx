@@ -27,7 +27,6 @@ const Kanban = () => {
 
   const fetchTasks = async () => {
     try {
-      setLoading(true);
       const { data, error } = await supabase
         .from("tasks")
         .select(`*, profiles:assigned_to(full_name, email)`)
@@ -44,6 +43,26 @@ const Kanban = () => {
 
   useEffect(() => {
     fetchTasks();
+
+    // Subscribe to real-time changes
+    const channel = supabase
+      .channel('schema-db-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'tasks'
+        },
+        () => {
+          fetchTasks();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const filteredTasks = tasks.filter(task => {

@@ -58,10 +58,17 @@ const Layout = ({ children }: LayoutProps) => {
           ))}
           <Button 
             variant="ghost" 
-            className="w-full justify-start gap-3 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 h-11"
+            asChild
+            className={`w-full justify-start gap-3 h-11 ${
+              location.pathname === "/profile" 
+                ? "bg-indigo-50 text-indigo-600 font-semibold" 
+                : "text-slate-600 hover:text-indigo-600 hover:bg-indigo-50"
+            }`}
           >
-            <Settings className="w-5 h-5" />
-            Settings
+            <Link to="/profile">
+              <Settings className="w-5 h-5" />
+              Settings
+            </Link>
           </Button>
         </nav>
         <div className="p-4 border-t border-slate-200">
@@ -74,10 +81,10 @@ const Layout = ({ children }: LayoutProps) => {
         {/* Header */}
         <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 sticky top-0 z-10">
           <h2 className="text-lg font-semibold text-slate-800">
-            {navItems.find(i => i.path === location.pathname)?.label || "TaskTracker"}
+            {navItems.find(i => i.path === location.pathname)?.label || (location.pathname === "/profile" ? "Profile" : "TaskTracker")}
           </h2>
           {user && (
-            <div className="flex items-center gap-3">
+            <Link to="/profile" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
               <div className="text-right hidden sm:block">
                 <p className="text-sm font-semibold text-slate-900">{user.email?.split('@')[0]}</p>
                 <p className="text-xs text-slate-500">Administrator</p>
@@ -85,7 +92,7 @@ const Layout = ({ children }: LayoutProps) => {
               <div className="w-9 h-9 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold text-sm">
                 {user.email?.[0].toUpperCase()}
               </div>
-            </div>
+            </Link>
           )}
         </header>
 

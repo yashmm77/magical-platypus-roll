@@ -8,6 +8,7 @@ import Team from "./pages/Team";
 import Dashboard from "./pages/Dashboard";
 import Tasks from "./pages/Tasks";
 import Kanban from "./pages/Kanban";
+import Profile from "./pages/Profile";
 
 const App = () => (
   <Router>
@@ -19,6 +20,7 @@ const App = () => (
       <Route path="/team" element={<Layout><Team /></Layout>} />
       <Route path="/dashboard" element={<Layout><Dashboard /></Layout>} />
       <Route path="/tasks" element={<Layout><Tasks /></Layout>} />
+      <Route path="/profile" element={<Layout><Profile /></Layout>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   </Router>
