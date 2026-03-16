@@ -16,6 +16,7 @@ import { useUsers } from "@/hooks/useUsers";
 import { toast } from "sonner";
 import { Task } from "@/types";
 import { logActivity } from "@/utils/activity";
+import { cn } from "@/lib/utils";
 
 interface TaskModalProps {
   open: boolean;
@@ -64,23 +65,27 @@ export const TaskModal = ({ open, onOpenChange, task, onSuccess }: TaskModalProp
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.title.trim()) return;
+    
     setIsSubmitting(true);
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("You must be logged in");
 
+      const payload = {
+        title: formData.title.trim(),
+        description: formData.description.trim() || null,
+        status: formData.status,
+        priority: formData.priority,
+        assigned_to: formData.assigned_to || null,
+        due_date: formData.due_date,
+      };
+
       if (isEditMode && task) {
         const { error } = await supabase
           .from("tasks")
-          .update({
-            title: formData.title,
-            description: formData.description || null,
-            status: formData.status,
-            priority: formData.priority,
-            assigned_to: formData.assigned_to || null,
-            due_date: formData.due_date,
-          })
+          .update(payload)
           .eq("id", task.id);
 
         if (error) throw error;
@@ -90,12 +95,7 @@ export const TaskModal = ({ open, onOpenChange, task, onSuccess }: TaskModalProp
         const { data, error } = await supabase
           .from("tasks")
           .insert({
-            title: formData.title,
-            description: formData.description || null,
-            status: formData.status,
-            priority: formData.priority,
-            assigned_to: formData.assigned_to || null,
-            due_date: formData.due_date,
+            ...payload,
             created_by: user.id,
           })
           .select()
@@ -208,7 +208,10 @@ export const TaskModal = ({ open, onOpenChange, task, onSuccess }: TaskModalProp
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
-                      className="w-full justify-start text-left font-normal"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !formData.due_date && "text-muted-foreground"
+                      )}
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
                       {formData.due_date ? (
@@ -238,7 +241,7 @@ export const TaskModal = ({ open, onOpenChange, task, onSuccess }: TaskModalProp
           <DialogFooter>
             <Button
               type="submit"
-              className="w-full bg-indigo-600 hover:bg-indigo-700"
+              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white"
               disabled={isSubmitting || !formData.title.trim()}
             >
               {isSubmitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}

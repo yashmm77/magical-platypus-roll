@@ -20,11 +20,14 @@ import {
   Search, 
   Trash2, 
   Filter,
-  X
+  X,
+  Plus,
+  Pencil
 } from "lucide-react";
 import { format } from "date-fns";
 import { useTasks } from "@/hooks/useTasks";
 import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
+import { TaskModal } from "@/components/TaskModal";
 import { 
   Select, 
   SelectContent, 
@@ -32,6 +35,7 @@ import {
   SelectTrigger, 
   SelectValue 
 } from "@/components/ui/select";
+import { Task } from "@/types";
 
 const Tasks = () => {
   const navigate = useNavigate();
@@ -40,6 +44,10 @@ const Tasks = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+  
+  // Modal states
+  const [modalOpen, setModalOpen] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const filteredTasks = useMemo(() => {
@@ -83,6 +91,16 @@ const Tasks = () => {
     }
   };
 
+  const handleCreateTask = () => {
+    setSelectedTask(null);
+    setModalOpen(true);
+  };
+
+  const handleEditTask = (task: Task) => {
+    setSelectedTask(task);
+    setModalOpen(true);
+  };
+
   const clearFilters = () => {
     setSearchQuery("");
     setStatusFilter("all");
@@ -101,7 +119,7 @@ const Tasks = () => {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <h1 className="text-2xl font-bold text-slate-900">All Tasks</h1>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <div className="relative w-full md:w-64">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <Input 
@@ -111,11 +129,13 @@ const Tasks = () => {
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
-          {(searchQuery || statusFilter !== "all" || priorityFilter !== "all") && (
-            <Button variant="ghost" size="sm" onClick={clearFilters} className="text-slate-500">
-              <X className="w-4 h-4 mr-2" /> Clear
-            </Button>
-          )}
+          <Button 
+            onClick={handleCreateTask}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            New Task
+          </Button>
         </div>
       </div>
 
@@ -145,6 +165,11 @@ const Tasks = () => {
             <SelectItem value="high">High</SelectItem>
           </SelectContent>
         </Select>
+        {(searchQuery || statusFilter !== "all" || priorityFilter !== "all") && (
+          <Button variant="ghost" size="sm" onClick={clearFilters} className="text-slate-500">
+            <X className="w-4 h-4 mr-2" /> Clear
+          </Button>
+        )}
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
@@ -197,14 +222,25 @@ const Tasks = () => {
                         size="icon" 
                         onClick={() => navigate(`/tasks/${task.id}`)}
                         className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 h-8 w-8"
+                        title="View Details"
                       >
                         <Eye className="w-4 h-4" />
                       </Button>
                       <Button 
                         variant="ghost" 
                         size="icon" 
+                        onClick={() => handleEditTask(task)}
+                        className="text-amber-600 hover:text-amber-700 hover:bg-amber-50 h-8 w-8"
+                        title="Edit Task"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
                         onClick={() => setDeleteId(task.id)}
                         className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Delete Task"
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>
@@ -216,6 +252,15 @@ const Tasks = () => {
           </TableBody>
         </Table>
       </div>
+
+      <TaskModal 
+        open={modalOpen} 
+        onOpenChange={setModalOpen} 
+        task={selectedTask} 
+        onSuccess={() => {
+          // The useTasks hook will automatically re-fetch due to query invalidation
+        }} 
+      />
 
       <DeleteConfirmDialog 
         open={!!deleteId} 
