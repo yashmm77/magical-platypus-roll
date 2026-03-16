@@ -3,7 +3,8 @@ import { Toaster } from "sonner";
 import Layout from "./components/Layout";
 import Index from "./pages/Index";
 import Kanban from "./pages/Kanban";
-import TaskList from "./pages/TaskList";
+import Tasks from "./pages/Tasks";
+import Calendar from "./pages/Calendar";
 import TaskDetail from "./pages/TaskDetail";
 import Team from "./pages/Team";
 import Profile from "./pages/Profile";
@@ -35,7 +36,11 @@ function App() {
         />
         <Route
           path="/tasks"
-          element={user ? <Layout><TaskList /></Layout> : <Navigate to="/login" />}
+          element={user ? <Layout><Tasks /></Layout> : <Navigate to="/login" />}
+        />
+        <Route
+          path="/calendar"
+          element={user ? <Layout><Calendar /></Layout> : <Navigate to="/login" />}
         />
         <Route
           path="/tasks/:id"
