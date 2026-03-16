@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,13 +8,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Search, Plus, Eye, Pencil, Trash2, Calendar } from "lucide-react";
+import { Search, Plus, Pencil, Trash2, Calendar, RefreshCw, Loader2 } from "lucide-react";
 import { useUsers } from "@/hooks/useUsers";
 import { toast } from "sonner";
 import { TaskModal } from "@/components/TaskModal";
 
 const Tasks = () => {
-  const navigate = useNavigate();
   const { data: users } = useUsers();
   const [tasks, setTasks] = useState<any[]>([]);
   const [filteredTasks, setFilteredTasks] = useState<any[]>([]);
@@ -25,10 +23,8 @@ const Tasks = () => {
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [assignedToFilter, setAssignedToFilter] = useState("all");
   
-  // Modal states
   const [taskModalOpen, setTaskModalOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<any>(null);
-  
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [taskToDelete, setTaskToDelete] = useState<any>(null);
 
@@ -37,20 +33,13 @@ const Tasks = () => {
       setLoading(true);
       const { data, error } = await supabase
         .from("tasks")
-        .select(`
-          *,
-          profiles:assigned_to (
-            full_name,
-            email
-          )
-        `)
+        .select(`*, profiles:assigned_to(full_name, email)`)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
       setTasks(data || []);
     } catch (error: any) {
       toast.error(error.message || "Failed to fetch tasks");
-      setTasks([]);
     } finally {
       setLoading(false);
     }
@@ -78,7 +67,11 @@ const Tasks = () => {
     }
     
     if (assignedToFilter !== "all") {
-      result = result.filter(task => task.assigned_to === assignedToFilter);
+      if (assignedToFilter === "unassigned") {
+        result = result.filter(task => !task.assigned_to);
+      } else {
+        result = result.filter(task => task.assigned_to === assignedToFilter);
+      }
     }
     
     setFilteredTasks(result);
@@ -102,41 +95,15 @@ const Tasks = () => {
     }
   };
 
-  const isOverdue = (dueDate: string, status: string) => {
-    if (!dueDate || status === "completed") return false;
-    return new Date(dueDate) < new Date();
-  };
-
-  const handleCreateClick = () => {
-    setSelectedTask(null);
-    setTaskModalOpen(true);
-  };
-
-  const handleEditClick = (task: any) => {
-    setSelectedTask(task);
-    setTaskModalOpen(true);
-  };
-
-  const handleDeleteClick = (task: any) => {
-    setTaskToDelete(task);
-    setDeleteDialogOpen(true);
-  };
-
   const handleDeleteConfirm = async () => {
     if (!taskToDelete) return;
-    
     try {
-      const { error } = await supabase
-        .from("tasks")
-        .delete()
-        .eq("id", taskToDelete.id);
-      
+      const { error } = await supabase.from("tasks").delete().eq("id", taskToDelete.id);
       if (error) throw error;
-      
       setTasks(tasks.filter(t => t.id !== taskToDelete.id));
       toast.success("Task deleted successfully");
     } catch (error: any) {
-      toast.error(error.message || "Failed to delete task");
+      toast.error(error.message);
     } finally {
       setDeleteDialogOpen(false);
       setTaskToDelete(null);
@@ -146,7 +113,7 @@ const Tasks = () => {
   if (loading) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+        <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
       </div>
     );
   }
@@ -155,10 +122,15 @@ const Tasks = () => {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <h1 className="text-2xl font-bold text-slate-800">Task List</h1>
-        <Button onClick={handleCreateClick} className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2">
-          <Plus className="w-4 h-4" />
-          New Task
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="icon" onClick={fetchTasks} className="text-slate-500">
+            <RefreshCw className="w-4 h-4" />
+          </Button>
+          <Button onClick={() => { setSelectedTask(null); setTaskModalOpen(true); }} className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2">
+            <Plus className="w-4 h-4" />
+            New Task
+          </Button>
+        </div>
       </div>
 
       <Card className="border-none shadow-sm">
@@ -178,9 +150,7 @@ const Tasks = () => {
             
             <div>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Statuses</SelectItem>
                   <SelectItem value="todo">Todo</SelectItem>
@@ -192,9 +162,7 @@ const Tasks = () => {
             
             <div>
               <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Priority" />
-                </SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Priority" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Priorities</SelectItem>
                   <SelectItem value="low">Low</SelectItem>
@@ -206,11 +174,10 @@ const Tasks = () => {
             
             <div>
               <Select value={assignedToFilter} onValueChange={setAssignedToFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Assigned To" />
-                </SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Assigned To" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Users</SelectItem>
+                  <SelectItem value="unassigned">Unassigned</SelectItem>
                   {users?.map((user) => (
                     <SelectItem key={user.id} value={user.id}>
                       {user.full_name || user.email}
@@ -254,28 +221,18 @@ const Tasks = () => {
                         {task.priority}
                       </Badge>
                     </td>
-                    <td className="px-6 py-4 text-sm">
-                      <div className={`flex items-center gap-1 ${isOverdue(task.due_date, task.status) ? 'text-rose-600 font-medium' : 'text-slate-500'}`}>
+                    <td className="px-6 py-4 text-sm text-slate-500">
+                      <div className="flex items-center gap-1">
                         <Calendar className="w-4 h-4" />
                         {task.due_date ? new Date(task.due_date).toLocaleDateString() : "No date"}
                       </div>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          className="text-slate-500 hover:text-indigo-600"
-                          onClick={() => handleEditClick(task)}
-                        >
+                        <Button variant="ghost" size="sm" onClick={() => { setSelectedTask(task); setTaskModalOpen(true); }}>
                           <Pencil className="w-4 h-4" />
                         </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          className="text-slate-500 hover:text-rose-600"
-                          onClick={() => handleDeleteClick(task)}
-                        >
+                        <Button variant="ghost" size="sm" className="text-rose-600" onClick={() => { setTaskToDelete(task); setDeleteDialogOpen(true); }}>
                           <Trash2 className="w-4 h-4" />
                         </Button>
                       </div>
@@ -297,31 +254,17 @@ const Tasks = () => {
         </div>
       </Card>
 
-      {/* Task Modal for Create/Edit */}
-      <TaskModal 
-        open={taskModalOpen} 
-        onOpenChange={setTaskModalOpen} 
-        task={selectedTask} 
-        onSuccess={fetchTasks} 
-      />
+      <TaskModal open={taskModalOpen} onOpenChange={setTaskModalOpen} task={selectedTask} onSuccess={fetchTasks} />
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the task 
-              "{taskToDelete?.title}" and remove it from our servers.
-            </AlertDialogDescription>
+            <AlertDialogDescription>This will permanently delete the task "{taskToDelete?.title}".</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction 
-              className="bg-rose-600 hover:bg-rose-700" 
-              onClick={handleDeleteConfirm}
-            >
-              Delete
-            </AlertDialogAction>
+            <AlertDialogAction className="bg-rose-600 hover:bg-rose-700" onClick={handleDeleteConfirm}>Delete</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

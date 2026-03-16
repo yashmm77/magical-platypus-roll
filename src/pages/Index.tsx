@@ -4,18 +4,68 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, CheckSquare, Clock, AlertCircle, ListTodo, Calendar, BarChart3 } from "lucide-react";
+import { Loader2, CheckSquare, Clock, AlertCircle, ListTodo, Calendar, BarChart3, RefreshCw, Users } from "lucide-react";
 import { CreateTaskDialog } from "@/components/CreateTaskDialog";
 import { initializeDatabase } from "@/database/initialize";
 import { useAuth } from "@/hooks/useAuth";
-import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from 'recharts';
+import { Button } from "@/components/ui/button";
 
 const Index = () => {
   const { user } = useAuth();
   const [summary, setSummary] = useState<any>(null);
   const [recentTasks, setRecentTasks] = useState<any[]>([]);
   const [dueTasks, setDueTasks] = useState<any[]>([]);
+  const [assigneeData, setAssigneeData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      // Fetch summary
+      const { data: summaryData } = await supabase.from("task_summary").select("*").single();
+      if (summaryData) setSummary(summaryData);
+
+      // Fetch recent tasks with explicit join
+      const { data: recentData } = await supabase
+        .from("tasks")
+        .select(`*, profiles:assigned_to(full_name, email)`)
+        .order("created_at", { ascending: false })
+        .limit(5);
+      if (recentData) setRecentTasks(recentData);
+
+      // Fetch tasks due today directly from table for better reliability
+      const today = new Date().toISOString().split('T')[0];
+      const { data: dueData } = await supabase
+        .from("tasks")
+        .select(`*, profiles:assigned_to(full_name, email)`)
+        .eq('due_date', today)
+        .neq('status', 'completed');
+      if (dueData) setDueTasks(dueData);
+
+      // Calculate assignee distribution
+      const { data: allTasks } = await supabase
+        .from("tasks")
+        .select(`assigned_to, profiles:assigned_to(full_name, email)`);
+      
+      if (allTasks) {
+        const counts: Record<string, { name: string, count: number }> = {};
+        allTasks.forEach((task: any) => {
+          // Handle profiles as either an object or an array (Supabase join behavior)
+          const profile = Array.isArray(task.profiles) ? task.profiles[0] : task.profiles;
+          const name = profile?.full_name || profile?.email || "Unassigned";
+          if (!counts[name]) counts[name] = { name, count: 0 };
+          counts[name].count += 1;
+        });
+        setAssigneeData(Object.values(counts));
+      }
+
+    } catch (err) {
+      console.error("Error fetching dashboard data:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     const init = async () => {
@@ -25,48 +75,17 @@ const Index = () => {
     init();
   }, []);
 
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      const { data: summaryData } = await supabase.from("task_summary").select("*").single();
-      if (summaryData) setSummary(summaryData);
-
-      const { data: recentData } = await supabase
-        .from("tasks")
-        .select(`*, assigned_user:profiles!tasks_assigned_to_fkey(full_name, email)`)
-        .order("created_at", { ascending: false })
-        .limit(5);
-      if (recentData) setRecentTasks(recentData);
-
-      const { data: dueData } = await supabase.from("tasks_due_today").select("*");
-      if (dueData) setDueTasks(dueData);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const chartData = summary ? [
+  const statusChartData = summary ? [
     { name: 'Completed', value: summary.completed_tasks, color: '#10b981' },
     { name: 'Pending', value: summary.pending_tasks, color: '#f59e0b' },
     { name: 'Overdue', value: summary.overdue_tasks, color: '#ef4444' },
   ] : [];
 
-  const getStatusBg = (status: string) => {
-    switch (status) {
-      case "todo": return "bg-slate-100 text-slate-700 border-slate-200";
-      case "in_progress": return "bg-blue-50 text-blue-700 border-blue-100";
-      case "completed": return "bg-emerald-50 text-emerald-700 border-emerald-100";
-      default: return "bg-slate-100 text-slate-700";
-    }
-  };
-
   const getPriorityBg = (priority: string) => {
     switch (priority) {
-      case "low": return "bg-emerald-50 text-emerald-700 border-emerald-100";
-      case "medium": return "bg-amber-50 text-amber-700 border-amber-100";
       case "high": return "bg-rose-50 text-rose-700 border-rose-100";
+      case "medium": return "bg-amber-50 text-amber-700 border-amber-100";
+      case "low": return "bg-emerald-50 text-emerald-700 border-emerald-100";
       default: return "bg-slate-100 text-slate-700";
     }
   };
@@ -86,7 +105,12 @@ const Index = () => {
           <h1 className="text-3xl font-bold text-slate-900">Dashboard</h1>
           <p className="text-slate-500 mt-1">Welcome back, {user?.email}</p>
         </div>
-        <CreateTaskDialog onTaskCreated={fetchData} />
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="icon" onClick={fetchData} className="text-slate-500">
+            <RefreshCw className="w-4 h-4" />
+          </Button>
+          <CreateTaskDialog onTaskCreated={fetchData} />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -128,19 +152,19 @@ const Index = () => {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <Card className="lg:col-span-2 border-none shadow-sm bg-white p-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <Card className="border-none shadow-sm bg-white p-6">
           <CardHeader className="px-0 pt-0">
             <CardTitle className="text-lg font-semibold flex items-center gap-2">
               <BarChart3 className="w-5 h-5 text-indigo-500" />
-              Task Distribution
+              Status Distribution
             </CardTitle>
           </CardHeader>
           <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
-                  data={chartData}
+                  data={statusChartData}
                   cx="50%"
                   cy="50%"
                   innerRadius={60}
@@ -148,7 +172,7 @@ const Index = () => {
                   paddingAngle={5}
                   dataKey="value"
                 >
-                  {chartData.map((entry, index) => (
+                  {statusChartData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
@@ -158,6 +182,68 @@ const Index = () => {
             </ResponsiveContainer>
           </div>
         </Card>
+
+        <Card className="border-none shadow-sm bg-white p-6">
+          <CardHeader className="px-0 pt-0">
+            <CardTitle className="text-lg font-semibold flex items-center gap-2">
+              <Users className="w-5 h-5 text-indigo-500" />
+              Tasks by Assignee
+            </CardTitle>
+          </CardHeader>
+          <div className="h-[300px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={assigneeData} layout="vertical" margin={{ left: 20, right: 20 }}>
+                <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
+                <XAxis type="number" hide />
+                <YAxis dataKey="name" type="category" width={100} fontSize={12} />
+                <Tooltip />
+                <Bar dataKey="count" fill="#6366f1" radius={[0, 4, 4, 0]} barSize={20} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 space-y-4">
+          <h2 className="text-xl font-semibold text-slate-800 flex items-center gap-2">
+            <Clock className="w-5 h-5 text-indigo-500" />
+            Recent Activity
+          </h2>
+          <Card className="border-none shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-100">
+                    <th className="px-6 py-4 text-sm font-semibold text-slate-600">Title</th>
+                    <th className="px-6 py-4 text-sm font-semibold text-slate-600">Assigned To</th>
+                    <th className="px-6 py-4 text-sm font-semibold text-slate-600">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {recentTasks.map((task) => (
+                    <tr key={task.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="px-6 py-4 text-sm font-medium text-slate-900">{task.title}</td>
+                      <td className="px-6 py-4 text-sm text-slate-500">
+                        {task.profiles?.full_name || task.profiles?.email || "Unassigned"}
+                      </td>
+                      <td className="px-6 py-4">
+                        <Badge variant="outline" className="bg-slate-100 text-slate-700">
+                          {task.status.replace('_', ' ')}
+                        </Badge>
+                      </td>
+                    </tr>
+                  ))}
+                  {recentTasks.length === 0 && (
+                    <tr>
+                      <td colSpan={3} className="px-6 py-8 text-center text-slate-500">No recent tasks.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </div>
 
         <div className="space-y-4">
           <h2 className="text-xl font-semibold text-slate-800 flex items-center gap-2">
@@ -175,7 +261,7 @@ const Index = () => {
                         {task.priority}
                       </Badge>
                       <span className="text-xs text-slate-500">
-                        {task.assigned_to_name || "Unassigned"}
+                        {task.profiles?.full_name || "Unassigned"}
                       </span>
                     </div>
                   </div>
@@ -190,47 +276,6 @@ const Index = () => {
             )}
           </div>
         </div>
-      </div>
-
-      <div className="space-y-4">
-        <h2 className="text-xl font-semibold text-slate-800 flex items-center gap-2">
-          <Clock className="w-5 h-5 text-indigo-500" />
-          Recent Activity
-        </h2>
-        <Card className="border-none shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-100">
-                  <th className="px-6 py-4 text-sm font-semibold text-slate-600">Title</th>
-                  <th className="px-6 py-4 text-sm font-semibold text-slate-600">Assigned To</th>
-                  <th className="px-6 py-4 text-sm font-semibold text-slate-600">Status</th>
-                  <th className="px-6 py-4 text-sm font-semibold text-slate-600">Priority</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {recentTasks.map((task) => (
-                  <tr key={task.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-6 py-4 text-sm font-medium text-slate-900">{task.title}</td>
-                    <td className="px-6 py-4 text-sm text-slate-500">
-                      {task.assigned_user?.full_name || task.assigned_user?.email || "Unassigned"}
-                    </td>
-                    <td className="px-6 py-4">
-                      <Badge variant="outline" className={getStatusBg(task.status)}>
-                        {task.status.replace('_', ' ')}
-                      </Badge>
-                    </td>
-                    <td className="px-6 py-4">
-                      <Badge variant="outline" className={getPriorityBg(task.priority)}>
-                        {task.priority}
-                      </Badge>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
       </div>
     </div>
   );

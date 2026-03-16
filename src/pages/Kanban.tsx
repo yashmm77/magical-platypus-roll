@@ -2,11 +2,13 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, Plus, MoreVertical, Calendar, User } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Loader2, Plus, Calendar, User, RefreshCw } from "lucide-react";
 import { TaskModal } from "@/components/TaskModal";
+import { useUsers } from "@/hooks/useUsers";
 import { toast } from "sonner";
 
 const COLUMNS = [
@@ -16,10 +18,12 @@ const COLUMNS = [
 ];
 
 const Kanban = () => {
+  const { data: users } = useUsers();
   const [tasks, setTasks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<any>(null);
+  const [assigneeFilter, setAssigneeFilter] = useState("all");
 
   const fetchTasks = async () => {
     try {
@@ -42,20 +46,11 @@ const Kanban = () => {
     fetchTasks();
   }, []);
 
-  const handleUpdateStatus = async (taskId: string, newStatus: string) => {
-    try {
-      const { error } = await supabase
-        .from("tasks")
-        .update({ status: newStatus })
-        .eq("id", taskId);
-
-      if (error) throw error;
-      fetchTasks();
-      toast.success("Status updated");
-    } catch (error: any) {
-      toast.error(error.message);
-    }
-  };
+  const filteredTasks = tasks.filter(task => {
+    if (assigneeFilter === "all") return true;
+    if (assigneeFilter === "unassigned") return !task.assigned_to;
+    return task.assigned_to === assigneeFilter;
+  });
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -76,28 +71,47 @@ const Kanban = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <h1 className="text-2xl font-bold text-slate-900">Kanban Board</h1>
-        <Button onClick={() => { setSelectedTask(null); setModalOpen(true); }} className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2">
-          <Plus className="w-4 h-4" />
-          New Task
-        </Button>
+        <div className="flex items-center gap-3">
+          <Select value={assigneeFilter} onValueChange={setAssigneeFilter}>
+            <SelectTrigger className="w-[180px] bg-white">
+              <SelectValue placeholder="Filter by Assignee" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Assignees</SelectItem>
+              <SelectItem value="unassigned">Unassigned</SelectItem>
+              {users?.map((user) => (
+                <SelectItem key={user.id} value={user.id}>
+                  {user.full_name || user.email}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button variant="outline" size="icon" onClick={fetchTasks} className="text-slate-500">
+            <RefreshCw className="w-4 h-4" />
+          </Button>
+          <Button onClick={() => { setSelectedTask(null); setModalOpen(true); }} className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2">
+            <Plus className="w-4 h-4" />
+            New Task
+          </Button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-[calc(100vh-200px)]">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-[calc(100vh-220px)]">
         {COLUMNS.map((column) => (
           <div key={column.id} className="flex flex-col gap-4 bg-slate-50/50 rounded-xl p-4 border border-slate-100">
             <div className="flex items-center justify-between px-2">
               <h2 className="font-semibold text-slate-700 flex items-center gap-2">
                 {column.title}
                 <Badge variant="secondary" className="bg-white text-slate-500 border-slate-200">
-                  {tasks.filter(t => t.status === column.id).length}
+                  {filteredTasks.filter(t => t.status === column.id).length}
                 </Badge>
               </h2>
             </div>
 
             <div className="flex-1 overflow-y-auto space-y-3 pr-1 custom-scrollbar">
-              {tasks
+              {filteredTasks
                 .filter((task) => task.status === column.id)
                 .map((task) => (
                   <Card 
@@ -137,12 +151,7 @@ const Kanban = () => {
         ))}
       </div>
 
-      <TaskModal 
-        open={modalOpen} 
-        onOpenChange={setModalOpen} 
-        task={selectedTask} 
-        onSuccess={fetchTasks} 
-      />
+      <TaskModal open={modalOpen} onOpenChange={setModalOpen} task={selectedTask} onSuccess={fetchTasks} />
     </div>
   );
 };
