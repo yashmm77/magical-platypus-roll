@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Users, Mail, Shield, Calendar, MoreVertical, UserPlus, Loader2, User, Lock, Plus } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { Users, Mail, Shield, Calendar, MoreVertical, UserPlus, Loader2, User, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -13,25 +13,86 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { useAuth } from "@/hooks/useAuth";
-import { useUsers } from "@/hooks/useUsers";
 import { supabase } from "@/lib/supabase";
-import { useQueryClient } from "@tanstack/react-query";
+
+interface TeamMember {
+  id: string;
+  full_name: string | null;
+  email: string | null;
+  role: string;
+  joined_at: string;
+}
 
 const Team = () => {
-  const { user, activeOrgId, userOrgs } = useAuth();
-  const { data: members, isLoading } = useUsers();
-  const queryClient = useQueryClient();
+  const { user, activeOrgId } = useAuth();
+  const [members, setMembers] = useState<TeamMember[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
   
-  const isAdmin = userOrgs.find(o => o.id === activeOrgId)?.role === 'admin';
-  
-  const [showInviteDialog, setShowInviteDialog] = useState(false);
+  // Invite Dialog State
+  const [inviteOpen, setInviteOpen] = useState(false);
   const [inviting, setInviting] = useState(false);
-  const [inviteForm, setInviteForm] = useState({
-    name: "",
+  const [inviteData, setInviteData] = useState({
+    fullName: "",
     email: "",
     password: "",
     role: "member"
   });
+
+  const fetchTeamData = useCallback(async () => {
+    if (!activeOrgId || !user) {
+      setIsLoading(false);
+      return;
+    }
+    
+    setIsLoading(true);
+    try {
+      // 1. Check if current user is admin
+      const { data: adminCheck } = await supabase
+        .from('org_members')
+        .select('role')
+        .eq('org_id', activeOrgId)
+        .eq('user_id', user.id)
+        .single();
+      
+      setIsAdmin(adminCheck?.role === 'admin');
+
+      // 2. Fetch all members of the organization
+      const { data: membersData, error: membersError } = await supabase
+        .from('org_members')
+        .select(`
+          role,
+          created_at,
+          profiles (
+            id,
+            full_name,
+            email
+          )
+        `)
+        .eq('org_id', activeOrgId);
+
+      if (membersError) throw membersError;
+
+      const formattedMembers = membersData.map((m: any) => ({
+        id: m.profiles.id,
+        full_name: m.profiles.full_name,
+        email: m.profiles.email,
+        role: m.role,
+        joined_at: m.created_at
+      }));
+
+      setMembers(formattedMembers);
+    } catch (err: any) {
+      console.error("Error fetching team:", err);
+      toast.error("Failed to load team members");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [activeOrgId, user]);
+
+  useEffect(() => {
+    fetchTeamData();
+  }, [fetchTeamData]);
 
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,48 +100,56 @@ const Team = () => {
     
     setInviting(true);
     try {
-      // a. Try to sign up
-      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-        email: inviteForm.email,
-        password: inviteForm.password,
+      let resolvedUserId: string;
+
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: inviteData.email,
+        password: inviteData.password,
         options: {
           data: {
-            full_name: inviteForm.name,
+            full_name: inviteData.fullName,
           },
         },
       });
 
-      let userId = signUpData?.user?.id;
-
-      // c. If signUpError or !userId, check for existing profile
-      if (signUpError || !userId) {
-        const { data: existing } = await supabase
-          .from("profiles")
-          .select("id")
-          .eq("email", inviteForm.email)
-          .single();
-        
-        userId = existing?.id;
+      if (authError) {
+        if (authError.message.toLowerCase().includes("already registered") || authError.status === 422) {
+          toast.info("User exists, linking to org...");
+          const { data: profileData, error: profileError } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('email', inviteData.email)
+            .single();
+          
+          if (profileError || !profileData) throw new Error("Could not find existing user profile");
+          resolvedUserId = profileData.id;
+        } else {
+          throw authError;
+        }
+      } else {
+        if (!authData.user) throw new Error("Failed to create user");
+        resolvedUserId = authData.user.id;
       }
 
-      if (!userId) throw new Error("Could not resolve user ID");
-
-      // d. Insert into org_members
       const { error: memberError } = await supabase
-        .from("org_members")
+        .from('org_members')
         .insert({
           org_id: activeOrgId,
-          user_id: userId,
-          role: inviteForm.role
+          user_id: resolvedUserId,
+          role: inviteData.role
         });
 
-      if (memberError) throw memberError;
+      if (memberError) {
+        if (memberError.code === '23505') {
+          throw new Error("User is already a member of this organization");
+        }
+        throw memberError;
+      }
 
-      // e. Success
-      toast.success("Member added!");
-      setShowInviteDialog(false);
-      setInviteForm({ name: "", email: "", password: "", role: "member" });
-      queryClient.invalidateQueries({ queryKey: ["users", activeOrgId] });
+      toast.success("Member added successfully");
+      setInviteOpen(false);
+      setInviteData({ fullName: "", email: "", password: "", role: "member" });
+      fetchTeamData();
     } catch (error: any) {
       toast.error(error.message || "Failed to add member");
     } finally {
@@ -99,10 +168,12 @@ const Team = () => {
     }
   };
 
-  if (isLoading) {
+  if (!activeOrgId && !isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
+      <div className="flex flex-col items-center justify-center h-[60vh] text-center">
+        <Users className="w-16 h-16 text-slate-300 mb-4" />
+        <h2 className="text-2xl font-bold text-slate-900 dark:text-white">No Organization Selected</h2>
+        <p className="text-slate-500 mt-2">Please select or create an organization to view team members.</p>
       </div>
     );
   }
@@ -116,7 +187,7 @@ const Team = () => {
         </div>
         {isAdmin && (
           <Button 
-            onClick={() => setShowInviteDialog(true)}
+            onClick={() => setInviteOpen(true)}
             className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2 shadow-md"
           >
             <UserPlus className="w-4 h-4" />
@@ -125,15 +196,13 @@ const Team = () => {
         )}
       </div>
 
-      {!members || members.length === 0 ? (
-        <div className="flex flex-col items-center justify-center h-64 text-center bg-white dark:bg-slate-900 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">
-          <Users className="w-12 h-12 text-slate-300 mb-4" />
-          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">No team members found</h3>
-          <p className="text-slate-500 mt-1">Start by inviting someone to your organization.</p>
+      {isLoading ? (
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {members.map((member: any) => (
+          {members.map((member) => (
             <Card key={member.id} className="border-none shadow-sm bg-white dark:bg-slate-900 hover:shadow-md transition-all group">
               <CardContent className="pt-6">
                 <div className="flex items-start justify-between mb-6">
@@ -170,6 +239,10 @@ const Team = () => {
                     <Mail className="w-4 h-4 text-slate-400" />
                     <span className="truncate">{member.email}</span>
                   </div>
+                  <div className="flex items-center gap-3 text-sm text-slate-500 dark:text-slate-400">
+                    <Calendar className="w-4 h-4 text-slate-400" />
+                    <span>Joined {format(new Date(member.joined_at), "MMM yyyy")}</span>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -177,7 +250,7 @@ const Team = () => {
         </div>
       )}
 
-      <Dialog open={showInviteDialog} onOpenChange={setShowInviteDialog}>
+      <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <form onSubmit={handleInvite}>
             <DialogHeader>
@@ -189,41 +262,53 @@ const Team = () => {
             <div className="grid gap-4 py-4">
               <div className="grid gap-2">
                 <Label htmlFor="fullName">Full Name</Label>
-                <Input
-                  id="fullName"
-                  placeholder="Jane Doe"
-                  value={inviteForm.name}
-                  onChange={(e) => setInviteForm({ ...inviteForm, name: e.target.value })}
-                  required
-                />
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <Input
+                    id="fullName"
+                    placeholder="Jane Doe"
+                    className="pl-10"
+                    value={inviteData.fullName}
+                    onChange={(e) => setInviteData({ ...inviteData, fullName: e.target.value })}
+                    required
+                  />
+                </div>
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="email">Email Address</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="jane@example.com"
-                  value={inviteForm.email}
-                  onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })}
-                  required
-                />
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="jane@example.com"
+                    className="pl-10"
+                    value={inviteData.email}
+                    onChange={(e) => setInviteData({ ...inviteData, email: e.target.value })}
+                    required
+                  />
+                </div>
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="password">Temporary Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={inviteForm.password}
-                  onChange={(e) => setInviteForm({ ...inviteForm, password: e.target.value })}
-                  required
-                />
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="••••••••"
+                    className="pl-10"
+                    value={inviteData.password}
+                    onChange={(e) => setInviteData({ ...inviteData, password: e.target.value })}
+                    required
+                  />
+                </div>
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="role">Role</Label>
                 <Select 
-                  value={inviteForm.role} 
-                  onValueChange={(val) => setInviteForm({ ...inviteForm, role: val })}
+                  value={inviteData.role} 
+                  onValueChange={(val) => setInviteData({ ...inviteData, role: val })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select a role" />
@@ -238,7 +323,7 @@ const Team = () => {
             <DialogFooter>
               <Button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700" disabled={inviting}>
                 {inviting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                Add Member
+                Add to Team
               </Button>
             </DialogFooter>
           </form>
