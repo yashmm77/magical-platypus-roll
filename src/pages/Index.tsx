@@ -6,7 +6,6 @@ import { supabase } from "@/lib/supabase";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, CheckSquare, Clock, AlertCircle, ListTodo, BarChart3, History, Calendar as CalendarIcon } from "lucide-react";
-import { CreateTaskDialog } from "@/components/CreateTaskDialog";
 import { useAuth } from "@/hooks/useAuth";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { format } from "date-fns";
@@ -43,6 +42,16 @@ const Index = () => {
 
   useEffect(() => {
     fetchData();
+
+    // Real-time subscription to refresh dashboard data
+    const channel = supabase
+      .channel('dashboard-updates')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, fetchData)
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const chartData = useMemo(() => {
@@ -69,7 +78,6 @@ const Index = () => {
           <h1 className="text-3xl font-bold text-slate-900">Dashboard</h1>
           <p className="text-slate-500 mt-1">Welcome back, {user?.email?.split('@')[0]}</p>
         </div>
-        <CreateTaskDialog onTaskCreated={fetchData} />
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
