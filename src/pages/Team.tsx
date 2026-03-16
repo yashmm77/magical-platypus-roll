@@ -1,33 +1,172 @@
 "use client";
 
-import { useState } from "react";
-import { Users, Plus, Mail, Shield, Calendar, MoreVertical, UserPlus, Loader2 } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { Users, Mail, Shield, Calendar, MoreVertical, UserPlus, Loader2, User, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { useUsers } from "@/hooks/useUsers";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/lib/supabase";
+
+interface TeamMember {
+  id: string;
+  full_name: string | null;
+  email: string | null;
+  role: string;
+  joined_at: string;
+}
 
 const Team = () => {
-  const { data: users, isLoading } = useUsers();
+  const { user, activeOrgId } = useAuth();
+  const [members, setMembers] = useState<TeamMember[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
+  
+  // Invite Dialog State
   const [inviteOpen, setInviteOpen] = useState(false);
-  const [inviteEmail, setInviteEmail] = useState("");
   const [inviting, setInviting] = useState(false);
+  const [inviteData, setInviteData] = useState({
+    fullName: "",
+    email: "",
+    password: "",
+    role: "member"
+  });
+
+  const fetchTeamData = useCallback(async () => {
+    if (!activeOrgId || !user) return;
+    
+    setIsLoading(true);
+    try {
+      // 1. Check if current user is admin
+      const { data: adminCheck } = await supabase
+        .from('org_members')
+        .select('role')
+        .eq('org_id', activeOrgId)
+        .eq('user_id', user.id)
+        .single();
+      
+      setIsAdmin(adminCheck?.role === 'admin');
+
+      // 2. Fetch all members of the organization
+      const { data: membersData, error: membersError } = await supabase
+        .from('org_members')
+        .select(`
+          role,
+          created_at,
+          profiles (
+            id,
+            full_name,
+            email
+          )
+        `)
+        .eq('org_id', activeOrgId);
+
+      if (membersError) throw membersError;
+
+      const formattedMembers = membersData.map((m: any) => ({
+        id: m.profiles.id,
+        full_name: m.profiles.full_name,
+        email: m.profiles.email,
+        role: m.role,
+        joined_at: m.created_at
+      }));
+
+      setMembers(formattedMembers);
+    } catch (err: any) {
+      console.error("Error fetching team:", err);
+      toast.error("Failed to load team members");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [activeOrgId, user]);
+
+  useEffect(() => {
+    fetchTeamData();
+  }, [fetchTeamData]);
 
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!activeOrgId) return;
+    
     setInviting(true);
-    // Simulate invite
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    toast.success(`Invitation sent to ${inviteEmail}`);
-    setInviteEmail("");
-    setInviteOpen(false);
-    setInviting(false);
+    try {
+      let resolvedUserId: string;
+
+      // a. Try to create user
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: inviteData.email,
+        password: inviteData.password,
+        options: {
+          data: {
+            full_name: inviteData.fullName,
+          },
+        },
+      });
+
+      if (authError) {
+        // b. Handle existing user
+        if (authError.message.toLowerCase().includes("already registered") || authError.status === 422) {
+          toast.info("User exists, linking to org...");
+          const { data: profileData, error: profileError } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('email', inviteData.email)
+            .single();
+          
+          if (profileError || !profileData) throw new Error("Could not find existing user profile");
+          resolvedUserId = profileData.id;
+        } else {
+          throw authError;
+        }
+      } else {
+        if (!authData.user) throw new Error("Failed to create user");
+        resolvedUserId = authData.user.id;
+      }
+
+      // c. Insert into org_members
+      const { error: memberError } = await supabase
+        .from('org_members')
+        .insert({
+          org_id: activeOrgId,
+          user_id: resolvedUserId,
+          role: inviteData.role
+        });
+
+      if (memberError) {
+        if (memberError.code === '23505') {
+          throw new Error("User is already a member of this organization");
+        }
+        throw memberError;
+      }
+
+      // d. Success
+      toast.success("Member added successfully");
+      setInviteOpen(false);
+      setInviteData({ fullName: "", email: "", password: "", role: "member" });
+      fetchTeamData();
+    } catch (error: any) {
+      toast.error(error.message || "Failed to add member");
+    } finally {
+      setInviting(false);
+    }
+  };
+
+  const getRoleBadge = (role: string) => {
+    switch (role) {
+      case 'admin':
+        return <Badge className="bg-indigo-100 text-indigo-700 border-indigo-200 hover:bg-indigo-100">Admin</Badge>;
+      case 'viewer':
+        return <Badge className="bg-amber-100 text-amber-700 border-amber-200 hover:bg-amber-100">Viewer</Badge>;
+      default:
+        return <Badge className="bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-100">Member</Badge>;
+    }
   };
 
   return (
@@ -35,15 +174,17 @@ const Team = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Team Members</h1>
-          <p className="text-slate-500 mt-1">Manage your team and their roles.</p>
+          <p className="text-slate-500 mt-1">Manage your team and their roles within this organization.</p>
         </div>
-        <Button 
-          onClick={() => setInviteOpen(true)}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2 shadow-md"
-        >
-          <UserPlus className="w-4 h-4" />
-          Invite Member
-        </Button>
+        {isAdmin && (
+          <Button 
+            onClick={() => setInviteOpen(true)}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2 shadow-md"
+          >
+            <UserPlus className="w-4 h-4" />
+            Invite Member
+          </Button>
+        )}
       </div>
 
       {isLoading ? (
@@ -52,55 +193,47 @@ const Team = () => {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {users?.map((user) => (
-            <Card key={user.id} className="border-none shadow-sm bg-white dark:bg-slate-900 hover:shadow-md transition-all group">
+          {members.map((member) => (
+            <Card key={member.id} className="border-none shadow-sm bg-white dark:bg-slate-900 hover:shadow-md transition-all group">
               <CardContent className="pt-6">
                 <div className="flex items-start justify-between mb-6">
                   <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 rounded-2xl bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-700 dark:text-indigo-400 font-bold text-xl shadow-inner">
-                      {user.full_name?.substring(0, 2).toUpperCase() || user.email?.substring(0, 2).toUpperCase() || "U"}
+                    <div className="w-14 h-14 rounded-2xl bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold text-xl">
+                      {member.full_name?.[0]?.toUpperCase() || member.email?.[0]?.toUpperCase() || "U"}
                     </div>
                     <div>
                       <h3 className="text-lg font-bold text-slate-900 dark:text-white group-hover:text-indigo-600 transition-colors">
-                        {user.full_name || "Unnamed User"}
+                        {member.full_name || "Unnamed User"}
                       </h3>
-                      <Badge variant="secondary" className="bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 border-none text-[10px] uppercase tracking-wider mt-1">
-                        {user.role || "Member"}
-                      </Badge>
+                      <div className="mt-1">
+                        {getRoleBadge(member.role)}
+                      </div>
                     </div>
                   </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="text-slate-400">
-                        <MoreVertical className="w-4 h-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem>View Profile</DropdownMenuItem>
-                      <DropdownMenuItem>Edit Role</DropdownMenuItem>
-                      <DropdownMenuItem className="text-rose-600">Remove from Team</DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  {isAdmin && member.id !== user?.id && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="text-slate-400">
+                          <MoreVertical className="w-4 h-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem>Edit Role</DropdownMenuItem>
+                        <DropdownMenuItem className="text-rose-600">Remove from Team</DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
                 </div>
 
                 <div className="space-y-3">
                   <div className="flex items-center gap-3 text-sm text-slate-500 dark:text-slate-400">
                     <Mail className="w-4 h-4 text-slate-400" />
-                    <span className="truncate">{user.email}</span>
+                    <span className="truncate">{member.email}</span>
                   </div>
                   <div className="flex items-center gap-3 text-sm text-slate-500 dark:text-slate-400">
                     <Calendar className="w-4 h-4 text-slate-400" />
-                    <span>Joined {user.updated_at ? format(new Date(user.updated_at), "MMM yyyy") : "Recently"}</span>
+                    <span>Joined {format(new Date(member.joined_at), "MMM yyyy")}</span>
                   </div>
-                </div>
-
-                <div className="mt-6 pt-6 border-t border-slate-50 dark:border-slate-800 flex items-center justify-between">
-                  <div className="flex -space-x-2">
-                    {[1, 2, 3].map((i) => (
-                      <div key={i} className="w-6 h-6 rounded-full border-2 border-white dark:border-slate-900 bg-slate-100 dark:bg-slate-800" />
-                    ))}
-                  </div>
-                  <span className="text-xs text-slate-400 font-medium">12 Active Tasks</span>
                 </div>
               </CardContent>
             </Card>
@@ -112,32 +245,77 @@ const Team = () => {
         <DialogContent className="sm:max-w-[425px]">
           <form onSubmit={handleInvite}>
             <DialogHeader>
-              <DialogTitle>Invite Team Member</DialogTitle>
+              <DialogTitle>Add Team Member</DialogTitle>
               <DialogDescription>
-                Send an invitation to join your workspace.
+                Add a new member to your organization. If they already have an account, they will be linked to your team.
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="grid gap-2">
+                <Label htmlFor="fullName">Full Name</Label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <Input
+                    id="fullName"
+                    placeholder="Jane Doe"
+                    className="pl-10"
+                    value={inviteData.fullName}
+                    onChange={(e) => setInviteData({ ...inviteData, fullName: e.target.value })}
+                    required
+                  />
+                </div>
+              </div>
+              <div className="grid gap-2">
                 <Label htmlFor="email">Email Address</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="colleague@example.com"
-                  value={inviteEmail}
-                  onChange={(e) => setInviteEmail(e.target.value)}
-                  required
-                />
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="jane@example.com"
+                    className="pl-10"
+                    value={inviteData.email}
+                    onChange={(e) => setInviteData({ ...inviteData, email: e.target.value })}
+                    required
+                  />
+                </div>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="password">Temporary Password</Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="••••••••"
+                    className="pl-10"
+                    value={inviteData.password}
+                    onChange={(e) => setInviteData({ ...inviteData, password: e.target.value })}
+                    required
+                  />
+                </div>
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="role">Role</Label>
-                <Badge variant="outline" className="w-fit">Member</Badge>
+                <Select 
+                  value={inviteData.role} 
+                  onValueChange={(val) => setInviteData({ ...inviteData, role: val })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="member">Member</SelectItem>
+                    <SelectItem value="viewer">Viewer</SelectItem>
+                    <SelectItem value="admin">Admin</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             <DialogFooter>
               <Button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700" disabled={inviting}>
                 {inviting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                Send Invitation
+                Add to Team
               </Button>
             </DialogFooter>
           </form>
