@@ -124,10 +124,6 @@ const Kanban = () => {
           <Button variant="outline" size="icon" onClick={fetchTasks} className="text-slate-500">
             <RefreshCw className="w-4 h-4" />
           </Button>
-          <Button onClick={() => { setSelectedTask(null); setModalOpen(true); }} className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2">
-            <Plus className="w-4 h-4" />
-            New Task
-          </Button>
         </div>
       </div>
 
