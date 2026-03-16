@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Users, Plus, Mail, Shield, Calendar, MoreVertical, UserPlus, Loader2, Check, AlertCircle, Trash2, User as UserIcon } from "lucide-react";
+import { Users, Mail, Shield, Calendar, MoreVertical, UserPlus, Loader2, Check, AlertCircle, Trash2, User as UserIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useUsers } from "@/hooks/useUsers";
 import { useRole } from "@/hooks/useRole";
+import { useAuth } from "@/hooks/useAuth";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -21,6 +22,7 @@ import { cn } from "@/lib/utils";
 const Team = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { user: currentUser } = useAuth();
   const { data: users, isLoading, error } = useUsers();
   const { isAdmin } = useRole();
   
@@ -47,7 +49,7 @@ const Team = () => {
   };
 
   const handleUpdateRole = async (userId: string, newRole: 'admin' | 'member' | 'viewer') => {
-    if (!isAdmin) return;
+    if (!isAdmin || userId === currentUser?.id) return;
     setUpdatingRoleId(userId);
     try {
       const { error } = await supabase
@@ -58,7 +60,6 @@ const Team = () => {
       if (error) throw error;
       
       toast.success(`Role updated to ${newRole}`);
-      // Force a refetch of the users list
       await queryClient.invalidateQueries({ queryKey: ["users"] });
     } catch (error: any) {
       toast.error(error.message || "Failed to update role");
@@ -68,7 +69,7 @@ const Team = () => {
   };
 
   const handleRemoveUser = async () => {
-    if (!userToDelete || !isAdmin) return;
+    if (!userToDelete || !isAdmin || userToDelete.id === currentUser?.id) return;
     setDeleting(true);
     try {
       const { error } = await supabase
@@ -142,6 +143,7 @@ const Team = () => {
                   <div>
                     <h3 className="text-lg font-bold text-slate-900 dark:text-white group-hover:text-indigo-600 transition-colors">
                       {user.full_name || "Unnamed User"}
+                      {user.id === currentUser?.id && <span className="ml-2 text-xs font-normal text-slate-400">(You)</span>}
                     </h3>
                     <div className="flex items-center gap-2 mt-1">
                       <Badge variant="secondary" className={cn(
@@ -156,41 +158,45 @@ const Team = () => {
                     </div>
                   </div>
                 </div>
-                {isAdmin && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="text-slate-400 hover:text-indigo-600">
-                        <MoreVertical className="w-4 h-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-56">
-                      <DropdownMenuItem onClick={() => navigate('/profile')} className="gap-2">
-                        <UserIcon className="w-4 h-4" /> View Profile
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <div className="px-2 py-1.5 text-xs font-semibold text-slate-500">Change Role</div>
-                      <DropdownMenuItem onClick={() => handleUpdateRole(user.id, 'admin')} className="gap-2">
-                        <Shield className="w-4 h-4 text-rose-500" /> Admin {user.role === 'admin' && <Check className="w-3 h-3 ml-auto" />}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleUpdateRole(user.id, 'member')} className="gap-2">
-                        <Users className="w-4 h-4 text-indigo-500" /> Member {user.role === 'member' && <Check className="w-3 h-3 ml-auto" />}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleUpdateRole(user.id, 'viewer')} className="gap-2">
-                        <Shield className="w-4 h-4 text-slate-500" /> Viewer {user.role === 'viewer' && <Check className="w-3 h-3 ml-auto" />}
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem 
-                        className="text-rose-600 gap-2"
-                        onClick={() => {
-                          setUserToDelete({ id: user.id, name: user.full_name || user.email });
-                          setDeleteConfirmOpen(true);
-                        }}
-                      >
-                        <Trash2 className="w-4 h-4" /> Remove from Team
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )}
+                
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="text-slate-400 hover:text-indigo-600">
+                      <MoreVertical className="w-4 h-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuItem onClick={() => navigate('/profile')} className="gap-2">
+                      <UserIcon className="w-4 h-4" /> View Profile
+                    </DropdownMenuItem>
+                    
+                    {isAdmin && user.id !== currentUser?.id && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <div className="px-2 py-1.5 text-xs font-semibold text-slate-500">Change Role</div>
+                        <DropdownMenuItem onClick={() => handleUpdateRole(user.id, 'admin')} className="gap-2">
+                          <Shield className="w-4 h-4 text-rose-500" /> Admin {user.role === 'admin' && <Check className="w-3 h-3 ml-auto" />}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleUpdateRole(user.id, 'member')} className="gap-2">
+                          <Users className="w-4 h-4 text-indigo-500" /> Member {user.role === 'member' && <Check className="w-3 h-3 ml-auto" />}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleUpdateRole(user.id, 'viewer')} className="gap-2">
+                          <Shield className="w-4 h-4 text-slate-500" /> Viewer {user.role === 'viewer' && <Check className="w-3 h-3 ml-auto" />}
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem 
+                          className="text-rose-600 gap-2"
+                          onClick={() => {
+                            setUserToDelete({ id: user.id, name: user.full_name || user.email });
+                            setDeleteConfirmOpen(true);
+                          }}
+                        >
+                          <Trash2 className="w-4 h-4" /> Remove from Team
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
 
               <div className="space-y-3">
