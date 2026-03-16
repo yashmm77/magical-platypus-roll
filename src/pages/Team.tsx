@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { Users, Mail, Shield, Calendar, MoreVertical, UserPlus, Loader2, User, Lock } from "lucide-react";
+import { useState } from "react";
+import { Users, Mail, Calendar, MoreVertical, UserPlus, Loader2, User, Lock, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -11,88 +11,24 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { format } from "date-fns";
 import { useAuth } from "@/hooks/useAuth";
+import { useUsers } from "@/hooks/useUsers";
 import { supabase } from "@/lib/supabase";
-
-interface TeamMember {
-  id: string;
-  full_name: string | null;
-  email: string | null;
-  role: string;
-  joined_at: string;
-}
+import { useQueryClient } from "@tanstack/react-query";
 
 const Team = () => {
-  const { user, activeOrgId } = useAuth();
-  const [members, setMembers] = useState<TeamMember[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const { user, activeOrgId, userOrgs } = useAuth();
+  const { data: members, isLoading } = useUsers();
+  const queryClient = useQueryClient();
   
-  // Invite Dialog State
-  const [inviteOpen, setInviteOpen] = useState(false);
+  const isAdmin = userOrgs.find(o => o.id === activeOrgId)?.role === 'admin';
+  
+  const [showInviteDialog, setShowInviteDialog] = useState(false);
   const [inviting, setInviting] = useState(false);
-  const [inviteData, setInviteData] = useState({
-    fullName: "",
-    email: "",
-    password: "",
-    role: "member"
-  });
-
-  const fetchTeamData = useCallback(async () => {
-    if (!activeOrgId || !user) {
-      setIsLoading(false);
-      return;
-    }
-    
-    setIsLoading(true);
-    try {
-      // 1. Check if current user is admin
-      const { data: adminCheck } = await supabase
-        .from('org_members')
-        .select('role')
-        .eq('org_id', activeOrgId)
-        .eq('user_id', user.id)
-        .single();
-      
-      setIsAdmin(adminCheck?.role === 'admin');
-
-      // 2. Fetch all members of the organization
-      const { data: membersData, error: membersError } = await supabase
-        .from('org_members')
-        .select(`
-          role,
-          created_at,
-          profiles (
-            id,
-            full_name,
-            email
-          )
-        `)
-        .eq('org_id', activeOrgId);
-
-      if (membersError) throw membersError;
-
-      const formattedMembers = membersData.map((m: any) => ({
-        id: m.profiles.id,
-        full_name: m.profiles.full_name,
-        email: m.profiles.email,
-        role: m.role,
-        joined_at: m.created_at
-      }));
-
-      setMembers(formattedMembers);
-    } catch (err: any) {
-      console.error("Error fetching team:", err);
-      toast.error("Failed to load team members");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [activeOrgId, user]);
-
-  useEffect(() => {
-    fetchTeamData();
-  }, [fetchTeamData]);
+  const [inviteName, setInviteName] = useState("");
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [invitePassword, setInvitePassword] = useState("");
+  const [inviteRole, setInviteRole] = useState("member");
 
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -100,43 +36,42 @@ const Team = () => {
     
     setInviting(true);
     try {
-      let resolvedUserId: string;
-
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: inviteData.email,
-        password: inviteData.password,
+      // a. Try to create user
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+        email: inviteEmail,
+        password: invitePassword,
         options: {
           data: {
-            full_name: inviteData.fullName,
+            full_name: inviteName,
           },
         },
       });
 
-      if (authError) {
-        if (authError.message.toLowerCase().includes("already registered") || authError.status === 422) {
-          toast.info("User exists, linking to org...");
-          const { data: profileData, error: profileError } = await supabase
-            .from('profiles')
-            .select('id')
-            .eq('email', inviteData.email)
-            .single();
-          
-          if (profileError || !profileData) throw new Error("Could not find existing user profile");
-          resolvedUserId = profileData.id;
-        } else {
-          throw authError;
+      let userId = signUpData?.user?.id;
+
+      // c. If signUpError or !userId: fetch from profiles
+      if (signUpError || !userId) {
+        const { data: existing } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("email", inviteEmail)
+          .single();
+        
+        userId = existing?.id;
+        if (userId) {
+          toast.info("User exists, linking to organization...");
         }
-      } else {
-        if (!authData.user) throw new Error("Failed to create user");
-        resolvedUserId = authData.user.id;
       }
 
+      if (!userId) throw new Error("Could not resolve user ID");
+
+      // d. Insert into org_members
       const { error: memberError } = await supabase
-        .from('org_members')
+        .from("org_members")
         .insert({
           org_id: activeOrgId,
-          user_id: resolvedUserId,
-          role: inviteData.role
+          user_id: userId,
+          role: inviteRole
         });
 
       if (memberError) {
@@ -146,10 +81,14 @@ const Team = () => {
         throw memberError;
       }
 
-      toast.success("Member added successfully");
-      setInviteOpen(false);
-      setInviteData({ fullName: "", email: "", password: "", role: "member" });
-      fetchTeamData();
+      // e. Success
+      toast.success("Member added!");
+      setShowInviteDialog(false);
+      setInviteName("");
+      setInviteEmail("");
+      setInvitePassword("");
+      setInviteRole("member");
+      queryClient.invalidateQueries({ queryKey: ["users", activeOrgId] });
     } catch (error: any) {
       toast.error(error.message || "Failed to add member");
     } finally {
@@ -168,12 +107,10 @@ const Team = () => {
     }
   };
 
-  if (!activeOrgId && !isLoading) {
+  if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center h-[60vh] text-center">
-        <Users className="w-16 h-16 text-slate-300 mb-4" />
-        <h2 className="text-2xl font-bold text-slate-900 dark:text-white">No Organization Selected</h2>
-        <p className="text-slate-500 mt-2">Please select or create an organization to view team members.</p>
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
       </div>
     );
   }
@@ -187,7 +124,7 @@ const Team = () => {
         </div>
         {isAdmin && (
           <Button 
-            onClick={() => setInviteOpen(true)}
+            onClick={() => setShowInviteDialog(true)}
             className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2 shadow-md"
           >
             <UserPlus className="w-4 h-4" />
@@ -196,13 +133,15 @@ const Team = () => {
         )}
       </div>
 
-      {isLoading ? (
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
+      {!members || members.length === 0 ? (
+        <div className="flex flex-col items-center justify-center h-64 bg-white dark:bg-slate-900 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">
+          <Users className="w-12 h-12 text-slate-300 mb-4" />
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">No team members found</h3>
+          <p className="text-slate-500">Start by inviting someone to your organization.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {members.map((member) => (
+          {members.map((member: any) => (
             <Card key={member.id} className="border-none shadow-sm bg-white dark:bg-slate-900 hover:shadow-md transition-all group">
               <CardContent className="pt-6">
                 <div className="flex items-start justify-between mb-6">
@@ -239,10 +178,6 @@ const Team = () => {
                     <Mail className="w-4 h-4 text-slate-400" />
                     <span className="truncate">{member.email}</span>
                   </div>
-                  <div className="flex items-center gap-3 text-sm text-slate-500 dark:text-slate-400">
-                    <Calendar className="w-4 h-4 text-slate-400" />
-                    <span>Joined {format(new Date(member.joined_at), "MMM yyyy")}</span>
-                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -250,7 +185,7 @@ const Team = () => {
         </div>
       )}
 
-      <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
+      <Dialog open={showInviteDialog} onOpenChange={setShowInviteDialog}>
         <DialogContent className="sm:max-w-[425px]">
           <form onSubmit={handleInvite}>
             <DialogHeader>
@@ -268,8 +203,8 @@ const Team = () => {
                     id="fullName"
                     placeholder="Jane Doe"
                     className="pl-10"
-                    value={inviteData.fullName}
-                    onChange={(e) => setInviteData({ ...inviteData, fullName: e.target.value })}
+                    value={inviteName}
+                    onChange={(e) => setInviteName(e.target.value)}
                     required
                   />
                 </div>
@@ -283,8 +218,8 @@ const Team = () => {
                     type="email"
                     placeholder="jane@example.com"
                     className="pl-10"
-                    value={inviteData.email}
-                    onChange={(e) => setInviteData({ ...inviteData, email: e.target.value })}
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
                     required
                   />
                 </div>
@@ -298,8 +233,8 @@ const Team = () => {
                     type="password"
                     placeholder="••••••••"
                     className="pl-10"
-                    value={inviteData.password}
-                    onChange={(e) => setInviteData({ ...inviteData, password: e.target.value })}
+                    value={invitePassword}
+                    onChange={(e) => setInvitePassword(e.target.value)}
                     required
                   />
                 </div>
@@ -307,8 +242,8 @@ const Team = () => {
               <div className="grid gap-2">
                 <Label htmlFor="role">Role</Label>
                 <Select 
-                  value={inviteData.role} 
-                  onValueChange={(val) => setInviteData({ ...inviteData, role: val })}
+                  value={inviteRole} 
+                  onValueChange={setInviteRole}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select a role" />
@@ -323,7 +258,7 @@ const Team = () => {
             <DialogFooter>
               <Button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700" disabled={inviting}>
                 {inviting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                Add to Team
+                Add Member
               </Button>
             </DialogFooter>
           </form>

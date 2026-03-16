@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 interface UserOrg {
   id: string;
   name: string;
+  role: string;
 }
 
 interface AuthContextType {
@@ -12,10 +13,9 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   activeOrgId: string | null;
-  setActiveOrgId: (id: string | null) => void;
+  setActiveOrgId: (id: string) => void;
   userOrgs: UserOrg[];
   signOut: () => Promise<void>;
-  refreshOrgs: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -24,7 +24,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeOrgId, setActiveOrgIdState] = useState<string | null>(null);
+  const [activeOrgId, setActiveOrgIdState] = useState<string | null>(localStorage.getItem("active_org_id"));
   const [userOrgs, setUserOrgs] = useState<UserOrg[]>([]);
 
   const fetchUserOrgs = async (userId: string) => {
@@ -36,38 +36,28 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       if (error) throw error;
 
-      const orgs = data?.map((item: any) => ({
-        id: item.organizations.id,
-        name: item.organizations.name
-      })) || [];
+      const orgs = (data || []).map((m: any) => ({
+        id: m.org_id,
+        name: m.organizations?.name,
+        role: m.role
+      }));
 
       setUserOrgs(orgs);
       
-      // Set active org if not set or if current active org is not in the list
-      const storedOrgId = localStorage.getItem('active_org_id');
-      if (storedOrgId && orgs.some(o => o.id === storedOrgId)) {
-        setActiveOrgIdState(storedOrgId);
-      } else if (orgs.length > 0) {
-        const firstOrgId = orgs[0].id;
-        setActiveOrgIdState(firstOrgId);
-        localStorage.setItem('active_org_id', firstOrgId);
+      if (orgs.length === 1 && !activeOrgId) {
+        setActiveOrgId(orgs[0].id);
       }
     } catch (err) {
       console.error('Error fetching user orgs:', err);
     }
   };
 
-  const setActiveOrgId = (id: string | null) => {
+  const setActiveOrgId = (id: string) => {
     setActiveOrgIdState(id);
-    if (id) {
-      localStorage.setItem('active_org_id', id);
-    } else {
-      localStorage.removeItem('active_org_id');
-    }
+    localStorage.setItem("active_org_id", id);
   };
 
   useEffect(() => {
-    // Check active sessions and sets the user
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
@@ -77,7 +67,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setLoading(false);
     });
 
-    // Listen for changes on auth state
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
@@ -94,12 +83,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const signOut = async () => {
+    localStorage.removeItem("active_org_id");
     await supabase.auth.signOut();
-    localStorage.removeItem('active_org_id');
-  };
-
-  const refreshOrgs = async () => {
-    if (user) await fetchUserOrgs(user.id);
   };
 
   return (
@@ -110,8 +95,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       activeOrgId, 
       setActiveOrgId, 
       userOrgs, 
-      signOut,
-      refreshOrgs
+      signOut 
     }}>
       {children}
     </AuthContext.Provider>
