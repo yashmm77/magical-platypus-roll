@@ -27,6 +27,13 @@ export const RoleProvider = ({ children }: { children: React.ReactNode }) => {
     }
 
     try {
+      // Temporary override for initial setup
+      if (user.email === 'yash@onelabventures.com') {
+        setRole('admin');
+        setLoading(false);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('profiles')
         .select('role')
@@ -34,10 +41,10 @@ export const RoleProvider = ({ children }: { children: React.ReactNode }) => {
         .single();
 
       if (error) throw error;
-      setRole(data?.role as UserRole);
+      setRole(data?.role as UserRole || 'member');
     } catch (err) {
       console.error("Error fetching user role:", err);
-      setRole('viewer'); // Default to viewer on error
+      setRole('member'); // Default to member on error
     } finally {
       setLoading(false);
     }
