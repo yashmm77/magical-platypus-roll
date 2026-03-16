@@ -31,17 +31,19 @@ export const CreateTaskDialog = ({ onTaskCreated }: CreateTaskDialogProps) => {
     setIsCreating(true);
 
     try {
-      const { data, error } = await supabase
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("User not authenticated");
+
+      const { error } = await supabase
         .from("tasks")
         .insert([{
           title: formData.title,
           description: formData.description,
           priority: formData.priority,
-          assigned_to: formData.assigned_to === "none" || !formData.assigned_to ? null : formData.assigned_to,
+          assigned_to: formData.assigned_to === "unassigned" || !formData.assigned_to ? null : formData.assigned_to,
           status: "todo",
-        }])
-        .select()
-        .single();
+          created_by: user.id,
+        }]);
 
       if (error) throw error;
 
@@ -49,7 +51,6 @@ export const CreateTaskDialog = ({ onTaskCreated }: CreateTaskDialogProps) => {
       setOpen(false);
       setFormData({ title: "", description: "", priority: "medium", assigned_to: "" });
       
-      // Call the callback to refresh tasks
       if (onTaskCreated) {
         onTaskCreated();
       }
@@ -114,7 +115,7 @@ export const CreateTaskDialog = ({ onTaskCreated }: CreateTaskDialogProps) => {
                 <Label htmlFor="assignee">Assign To</Label>
                 <Select
                   value={formData.assigned_to || "unassigned"}
-                  onValueChange={(val) => setFormData({ ...formData, assigned_to: val === "unassigned" ? "" : val })}
+                  onValueChange={(val) => setFormData({ ...formData, assigned_to: val })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select member" />

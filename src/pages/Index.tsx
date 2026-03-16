@@ -1,51 +1,29 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, CheckSquare, Clock, AlertCircle, ListTodo, Calendar, BarChart3, RefreshCw, Users } from "lucide-react";
+import { Loader2, CheckSquare, Clock, AlertCircle, ListTodo, BarChart3, RefreshCw } from "lucide-react";
 import { CreateTaskDialog } from "@/components/CreateTaskDialog";
 import { useAuth } from "@/hooks/useAuth";
 import { useTasks } from "@/hooks/useTasks";
-import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from 'recharts';
+import { useUsers } from "@/hooks/useUsers";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { Button } from "@/components/ui/button";
 
 const Index = () => {
   const { user } = useAuth();
   const { tasks, isLoading: tasksLoading } = useTasks();
+  const { data: users } = useUsers();
   const [summary, setSummary] = useState<any>(null);
-  const [dueTasks, setDueTasks] = useState<any[]>([]);
-  const [assigneeData, setAssigneeData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Fetch summary
       const { data: summaryData } = await supabase.from("task_summary").select("*").single();
       if (summaryData) setSummary(summaryData);
-
-      // Fetch tasks due today
-      const today = new Date().toISOString().split('T')[0];
-      const { data: dueData } = await supabase
-        .from("tasks")
-        .select(`*, profiles:assigned_to(full_name, email)`)
-        .eq('due_date', today)
-        .neq('status', 'completed');
-      if (dueData) setDueTasks(dueData);
-
-      // Calculate assignee distribution from the tasks hook data
-      if (tasks) {
-        const counts: Record<string, { name: string, count: number }> = {};
-        tasks.forEach((task: any) => {
-          const name = "Unassigned"; // Simplified since we removed the join in useTasks
-          if (!counts[name]) counts[name] = { name, count: 0 };
-          counts[name].count += 1;
-        });
-        setAssigneeData(Object.values(counts));
-      }
-
     } catch (err) {
       console.error("Error fetching dashboard data:", err);
     } finally {
@@ -57,20 +35,28 @@ const Index = () => {
     fetchData();
   }, [tasks]);
 
-  const statusChartData = summary ? [
-    { name: 'Completed', value: summary.completed_tasks, color: '#10b981' },
-    { name: 'Pending', value: summary.pending_tasks, color: '#f59e0b' },
-    { name: 'Overdue', value: summary.overdue_tasks, color: '#ef4444' },
-  ] : [];
+  const statusChartData = useMemo(() => {
+    if (!summary) return [];
+    return [
+      { name: 'Completed', value: summary.completed_tasks, color: '#10b981' },
+      { name: 'Pending', value: summary.pending_tasks, color: '#f59e0b' },
+      { name: 'Overdue', value: summary.overdue_tasks, color: '#ef4444' },
+    ].filter(item => item.value > 0);
+  }, [summary]);
 
-  const getPriorityBg = (priority: string) => {
-    switch (priority) {
-      case "high": return "bg-rose-50 text-rose-700 border-rose-100";
-      case "medium": return "bg-amber-50 text-amber-700 border-amber-100";
-      case "low": return "bg-emerald-50 text-emerald-700 border-emerald-100";
-      default: return "bg-slate-100 text-slate-700";
-    }
-  };
+  const assigneeChartData = useMemo(() => {
+    if (!tasks || !users) return [];
+    const counts: Record<string, number> = {};
+    
+    tasks.forEach((task: any) => {
+      const assigneeId = task.assigned_to;
+      const user = users.find(u => u.id === assigneeId);
+      const name = user?.full_name || user?.email || "Unassigned";
+      counts[name] = (counts[name] || 0) + 1;
+    });
+
+    return Object.entries(counts).map(([name, count]) => ({ name, value: count }));
+  }, [tasks, users]);
 
   if (loading || tasksLoading) {
     return (
@@ -85,7 +71,7 @@ const Index = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-slate-900">Dashboard</h1>
-          <p className="text-slate-500 mt-1">Welcome back, {user?.email}</p>
+          <p className="text-slate-500 mt-1">Welcome back, {user?.email?.split('@')[0]}</p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="icon" onClick={fetchData} className="text-slate-500">
@@ -139,7 +125,7 @@ const Index = () => {
           <CardHeader className="px-0 pt-0">
             <CardTitle className="text-lg font-semibold flex items-center gap-2">
               <BarChart3 className="w-5 h-5 text-indigo-500" />
-              Status Distribution
+              Task Distribution
             </CardTitle>
           </CardHeader>
           <div className="h-[300px] w-full">
@@ -168,29 +154,29 @@ const Index = () => {
         <div className="space-y-4">
           <h2 className="text-xl font-semibold text-slate-800 flex items-center gap-2">
             <ListTodo className="w-5 h-5 text-indigo-500" />
-            Task List
+            Recent Tasks
           </h2>
-          <div className="space-y-3 text-left max-h-[400px] overflow-y-auto pr-2">
+          <div className="space-y-3 text-left max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
             {tasks.length === 0 ? (
               <p className="text-center text-slate-400 py-8">No tasks yet. Create one above!</p>
             ) : (
               tasks.map((task) => (
-                <div key={task.id} className="bg-white rounded-xl shadow-sm p-4 flex items-center justify-between border border-slate-100">
+                <div key={task.id} className="bg-white rounded-xl shadow-sm p-4 flex items-center justify-between border border-slate-100 hover:border-indigo-100 transition-colors">
                   <div>
                     <p className="font-semibold text-slate-800">{task.title}</p>
                     {task.description && <p className="text-sm text-slate-500 mt-1 line-clamp-1">{task.description}</p>}
                   </div>
                   <div className="flex gap-2">
-                    <span className={`text-[10px] px-2 py-1 rounded-full font-bold uppercase tracking-wider ${
-                      task.priority === 'high' ? 'bg-rose-100 text-rose-700' :
-                      task.priority === 'medium' ? 'bg-amber-100 text-amber-700' :
-                      'bg-emerald-100 text-emerald-700'
+                    <Badge variant="outline" className={`text-[10px] uppercase tracking-wider ${
+                      task.priority === 'high' ? 'bg-rose-50 text-rose-700 border-rose-100' :
+                      task.priority === 'medium' ? 'bg-amber-50 text-amber-700 border-amber-100' :
+                      'bg-emerald-50 text-emerald-700 border-emerald-100'
                     }`}>
                       {task.priority}
-                    </span>
-                    <span className="text-[10px] px-2 py-1 rounded-full bg-slate-100 text-slate-600 font-bold uppercase tracking-wider">
+                    </Badge>
+                    <Badge variant="secondary" className="text-[10px] uppercase tracking-wider bg-slate-100 text-slate-600 border-none">
                       {task.status.replace('_', ' ')}
-                    </span>
+                    </Badge>
                   </div>
                 </div>
               ))
