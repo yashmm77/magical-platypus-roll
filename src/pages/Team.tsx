@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Users, Mail, Shield, Calendar, MoreVertical, UserPlus, Loader2, AlertCircle, Trash2, User as UserIcon, RefreshCw } from "lucide-react";
+import { Users, Mail, Shield, Calendar, MoreVertical, UserPlus, Loader2, Check, AlertCircle, Trash2, User as UserIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -48,24 +48,21 @@ const Team = () => {
     setInviting(false);
   };
 
-  const handleChangeRole = async (member: any) => {
-    if (!isAdmin || member.id === currentUser?.id) return;
-    
-    const newRole = member.role === 'admin' ? 'member' : 'admin';
-    setUpdatingRoleId(member.id);
-    
+  const handleUpdateRole = async (userId: string, newRole: 'admin' | 'member' | 'viewer') => {
+    if (!isAdmin || userId === currentUser?.id) return;
+    setUpdatingRoleId(userId);
     try {
       const { error } = await supabase
         .from('profiles')
         .update({ role: newRole })
-        .eq('id', member.id);
+        .eq('id', userId);
 
       if (error) throw error;
       
-      toast.success(`${member.full_name || member.email} is now ${newRole}`);
+      toast.success(`Role updated to ${newRole}`);
       await queryClient.invalidateQueries({ queryKey: ["users"] });
     } catch (error: any) {
-      toast.error(error.message || "Failed to update role. Only admins can do this.");
+      toast.error(error.message || "Failed to update role");
     } finally {
       setUpdatingRoleId(null);
     }
@@ -176,8 +173,15 @@ const Team = () => {
                     {isAdmin && user.id !== currentUser?.id && (
                       <>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => handleChangeRole(user)} className="gap-2">
-                          <RefreshCw className="w-4 h-4 text-indigo-500" /> Change Role
+                        <div className="px-2 py-1.5 text-xs font-semibold text-slate-500">Change Role</div>
+                        <DropdownMenuItem onClick={() => handleUpdateRole(user.id, 'admin')} className="gap-2">
+                          <Shield className="w-4 h-4 text-rose-500" /> Admin {user.role === 'admin' && <Check className="w-3 h-3 ml-auto" />}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleUpdateRole(user.id, 'member')} className="gap-2">
+                          <Users className="w-4 h-4 text-indigo-500" /> Member {user.role === 'member' && <Check className="w-3 h-3 ml-auto" />}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleUpdateRole(user.id, 'viewer')} className="gap-2">
+                          <Shield className="w-4 h-4 text-slate-500" /> Viewer {user.role === 'viewer' && <Check className="w-3 h-3 ml-auto" />}
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem 
