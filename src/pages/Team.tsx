@@ -1,65 +1,148 @@
-import { Users, Plus, Mail, User as UserIcon } from "lucide-react";
+"use client";
+
+import { useState } from "react";
+import { Users, Plus, Mail, Shield, Calendar, MoreVertical, UserPlus, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { useAuth } from "@/hooks/useAuth";
 import { useUsers } from "@/hooks/useUsers";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
+import { format } from "date-fns";
 
 const Team = () => {
-  const { user } = useAuth();
   const { data: users, isLoading } = useUsers();
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviting, setInviting] = useState(false);
+
+  const handleInvite = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setInviting(true);
+    // Simulate invite
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    toast.success(`Invitation sent to ${inviteEmail}`);
+    setInviteEmail("");
+    setInviteOpen(false);
+    setInviting(false);
+  };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
+    <div className="space-y-8 max-w-7xl mx-auto">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-slate-800">Team Members</h1>
-        <Button className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2">
-          <Plus className="w-4 h-4" />
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Team Members</h1>
+          <p className="text-slate-500 mt-1">Manage your team and their roles.</p>
+        </div>
+        <Button 
+          onClick={() => setInviteOpen(true)}
+          className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2 shadow-md"
+        >
+          <UserPlus className="w-4 h-4" />
           Invite Member
         </Button>
       </div>
 
-      {/* Team Members Grid */}
       {isLoading ? (
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+          <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {users?.map((user) => (
-            <Card key={user.id} className="border-none shadow-sm bg-white hover:shadow-md transition-shadow">
+            <Card key={user.id} className="border-none shadow-sm bg-white dark:bg-slate-900 hover:shadow-md transition-all group">
               <CardContent className="pt-6">
-                <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-lg">
-                    {user.full_name?.substring(0, 2).toUpperCase() || user.email?.substring(0, 2).toUpperCase() || "U"}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-lg font-semibold text-slate-900 truncate">
-                      {user.full_name || "Unnamed User"}
-                    </h3>
-                    <div className="flex items-center gap-2 text-sm text-slate-500 mt-1">
-                      <Mail className="w-4 h-4" />
-                      <span className="truncate">{user.email}</span>
+                <div className="flex items-start justify-between mb-6">
+                  <div className="flex items-center gap-4">
+                    <div className="w-14 h-14 rounded-2xl bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-700 dark:text-indigo-400 font-bold text-xl shadow-inner">
+                      {user.full_name?.substring(0, 2).toUpperCase() || user.email?.substring(0, 2).toUpperCase() || "U"}
                     </div>
-                    <div className="mt-4 flex items-center gap-2">
-                      <Badge variant="secondary" className="bg-indigo-50 text-indigo-700 border-none">
-                        Member
+                    <div>
+                      <h3 className="text-lg font-bold text-slate-900 dark:text-white group-hover:text-indigo-600 transition-colors">
+                        {user.full_name || "Unnamed User"}
+                      </h3>
+                      <Badge variant="secondary" className="bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 border-none text-[10px] uppercase tracking-wider mt-1">
+                        {user.role || "Member"}
                       </Badge>
                     </div>
                   </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="text-slate-400">
+                        <MoreVertical className="w-4 h-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem>View Profile</DropdownMenuItem>
+                      <DropdownMenuItem>Edit Role</DropdownMenuItem>
+                      <DropdownMenuItem className="text-rose-600">Remove from Team</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3 text-sm text-slate-500 dark:text-slate-400">
+                    <Mail className="w-4 h-4 text-slate-400" />
+                    <span className="truncate">{user.email}</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-sm text-slate-500 dark:text-slate-400">
+                    <Calendar className="w-4 h-4 text-slate-400" />
+                    <span>Joined {user.updated_at ? format(new Date(user.updated_at), "MMM yyyy") : "Recently"}</span>
+                  </div>
+                </div>
+
+                <div className="mt-6 pt-6 border-t border-slate-50 dark:border-slate-800 flex items-center justify-between">
+                  <div className="flex -space-x-2">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="w-6 h-6 rounded-full border-2 border-white dark:border-slate-900 bg-slate-100 dark:bg-slate-800" />
+                    ))}
+                  </div>
+                  <span className="text-xs text-slate-400 font-medium">12 Active Tasks</span>
                 </div>
               </CardContent>
             </Card>
           ))}
-          {users?.length === 0 && (
-            <div className="col-span-full text-center py-12 bg-white rounded-xl border border-dashed border-slate-300">
-              <Users className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-              <p className="text-slate-500">No team members found.</p>
-            </div>
-          )}
         </div>
       )}
+
+      <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <form onSubmit={handleInvite}>
+            <DialogHeader>
+              <DialogTitle>Invite Team Member</DialogTitle>
+              <DialogDescription>
+                Send an invitation to join your workspace.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="email">Email Address</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="colleague@example.com"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="role">Role</Label>
+                <Badge variant="outline" className="w-fit">Member</Badge>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700" disabled={inviting}>
+                {inviting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                Send Invitation
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

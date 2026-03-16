@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, CheckSquare, Clock, AlertCircle, ListTodo, BarChart3, RefreshCw, User, History } from "lucide-react";
+import { Loader2, CheckSquare, Clock, AlertCircle, ListTodo, BarChart3, RefreshCw, User, History, Users } from "lucide-react";
 import { CreateTaskDialog } from "@/components/CreateTaskDialog";
 import { useAuth } from "@/hooks/useAuth";
 import { useTasks } from "@/hooks/useTasks";
@@ -61,6 +61,19 @@ const Index = () => {
       { name: 'Low', value: counts.low, color: '#10b981' },
     ];
   }, [tasks]);
+
+  const assigneeData = useMemo(() => {
+    if (!users || !tasks) return [];
+    const counts: Record<string, number> = {};
+    
+    tasks.forEach(t => {
+      const assignee = users.find(u => u.id === t.assigned_to);
+      const name = assignee?.full_name?.split(' ')[0] || "Unassigned";
+      counts[name] = (counts[name] || 0) + 1;
+    });
+
+    return Object.entries(counts).map(([name, value]) => ({ name, value }));
+  }, [tasks, users]);
 
   const statusChartData = useMemo(() => {
     if (!summary) return [];
@@ -169,22 +182,18 @@ const Index = () => {
             <Card className="border-none shadow-sm bg-white dark:bg-slate-900 p-6">
               <CardHeader className="px-0 pt-0">
                 <CardTitle className="text-lg font-semibold flex items-center gap-2">
-                  <BarChart3 className="w-5 h-5 text-indigo-500" />
-                  Priority Breakdown
+                  <Users className="w-5 h-5 text-indigo-500" />
+                  Workload by Member
                 </CardTitle>
               </CardHeader>
               <div className="h-[250px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={priorityData}>
+                  <BarChart data={assigneeData}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                     <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} />
                     <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} />
                     <Tooltip cursor={{ fill: '#f8fafc' }} />
-                    <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                      {priorityData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Bar>
+                    <Bar dataKey="value" fill="#6366f1" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
