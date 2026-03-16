@@ -6,7 +6,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, CheckSquare, Clock, AlertCircle, ListTodo, Calendar, BarChart3, RefreshCw, Users } from "lucide-react";
 import { CreateTaskDialog } from "@/components/CreateTaskDialog";
-import { initializeDatabase } from "@/database/initialize";
 import { useAuth } from "@/hooks/useAuth";
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from 'recharts';
 import { Button } from "@/components/ui/button";
@@ -68,11 +67,7 @@ const Index = () => {
   };
 
   useEffect(() => {
-    const init = async () => {
-      await initializeDatabase();
-      fetchData();
-    };
-    init();
+    fetchData();
   }, []);
 
   const statusChartData = summary ? [

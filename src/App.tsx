@@ -9,18 +9,21 @@ import Dashboard from "./pages/Dashboard";
 import Tasks from "./pages/Tasks";
 import Kanban from "./pages/Kanban";
 import Profile from "./pages/Profile";
+import { ProtectedRoute } from "./components/ProtectedRoute";
 
 const App = () => (
   <Router>
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
-      <Route path="/" element={<Layout><Index /></Layout>} />
-      <Route path="/kanban" element={<Layout><Kanban /></Layout>} />
-      <Route path="/team" element={<Layout><Team /></Layout>} />
-      <Route path="/dashboard" element={<Layout><Dashboard /></Layout>} />
-      <Route path="/tasks" element={<Layout><Tasks /></Layout>} />
-      <Route path="/profile" element={<Layout><Profile /></Layout>} />
+      
+      <Route path="/" element={<ProtectedRoute><Layout><Index /></Layout></ProtectedRoute>} />
+      <Route path="/kanban" element={<ProtectedRoute><Layout><Kanban /></Layout></ProtectedRoute>} />
+      <Route path="/team" element={<ProtectedRoute><Layout><Team /></Layout></ProtectedRoute>} />
+      <Route path="/dashboard" element={<ProtectedRoute><Layout><Dashboard /></Layout></ProtectedRoute>} />
+      <Route path="/tasks" element={<ProtectedRoute><Layout><Tasks /></Layout></ProtectedRoute>} />
+      <Route path="/profile" element={<ProtectedRoute><Layout><Profile /></Layout></ProtectedRoute>} />
+      
       <Route path="*" element={<NotFound />} />
     </Routes>
   </Router>
