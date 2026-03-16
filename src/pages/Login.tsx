@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -84,11 +84,8 @@ const Login = () => {
               {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
               Sign In
             </Button>
-            <p className="text-sm text-center text-slate-600">
-              Don't have an account?{" "}
-              <Link to="/signup" className="text-indigo-600 font-semibold hover:underline">
-                Sign up
-              </Link>
+            <p className="text-xs text-center text-slate-400">
+              Contact your administrator if you need an account.
             </p>
           </CardFooter>
         </form>
