@@ -68,7 +68,7 @@ const Layout = ({ children }: LayoutProps) => {
     { path: "/tasks", label: "Task List", icon: List },
     { path: "/calendar", label: "Calendar", icon: Calendar },
     { path: "/reports", label: "Reports", icon: BarChart3 },
-    { path: "/team", label: "Team", icon: User, adminOnly: true },
+    { path: "/team", label: "Team", icon: User },
   ];
 
   const SidebarContent = () => (
@@ -81,8 +81,6 @@ const Layout = ({ children }: LayoutProps) => {
       </div>
       <nav className="flex-1 px-4 space-y-1 overflow-y-auto custom-scrollbar">
         {navItems.map((item) => {
-          if (item.adminOnly && !isAdmin) return null;
-          
           const isActive = location.pathname === item.path;
           return (
             <Button 
