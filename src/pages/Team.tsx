@@ -40,7 +40,10 @@ const Team = () => {
   });
 
   const fetchTeamData = useCallback(async () => {
-    if (!activeOrgId || !user) return;
+    if (!activeOrgId || !user) {
+      setIsLoading(false);
+      return;
+    }
     
     setIsLoading(true);
     try {
@@ -99,7 +102,6 @@ const Team = () => {
     try {
       let resolvedUserId: string;
 
-      // a. Try to create user
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: inviteData.email,
         password: inviteData.password,
@@ -111,7 +113,6 @@ const Team = () => {
       });
 
       if (authError) {
-        // b. Handle existing user
         if (authError.message.toLowerCase().includes("already registered") || authError.status === 422) {
           toast.info("User exists, linking to org...");
           const { data: profileData, error: profileError } = await supabase
@@ -130,7 +131,6 @@ const Team = () => {
         resolvedUserId = authData.user.id;
       }
 
-      // c. Insert into org_members
       const { error: memberError } = await supabase
         .from('org_members')
         .insert({
@@ -146,7 +146,6 @@ const Team = () => {
         throw memberError;
       }
 
-      // d. Success
       toast.success("Member added successfully");
       setInviteOpen(false);
       setInviteData({ fullName: "", email: "", password: "", role: "member" });
@@ -168,6 +167,16 @@ const Team = () => {
         return <Badge className="bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-100">Member</Badge>;
     }
   };
+
+  if (!activeOrgId && !isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[60vh] text-center">
+        <Users className="w-16 h-16 text-slate-300 mb-4" />
+        <h2 className="text-2xl font-bold text-slate-900 dark:text-white">No Organization Selected</h2>
+        <p className="text-slate-500 mt-2">Please select or create an organization to view team members.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto">

@@ -208,7 +208,7 @@ const Layout = ({ children }: LayoutProps) => {
         >
           <div 
             key={location.pathname}
-            className="p-4 md:p-8 max-w-[1600px] mx-auto animate-in fade-in slide-in-from-bottom-2 duration-500"
+            className="p-4 md:p-8 max-w-[1600px] mx-auto"
           >
             {children}
           </div>
