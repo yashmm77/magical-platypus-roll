@@ -29,9 +29,10 @@ export const useTasks = () => {
         .from("tasks")
         .insert([{ ...newTask, created_by: user?.id }])
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
+      if (!data) throw new Error("Failed to create task");
       return data;
     },
     onSuccess: (data) => {
@@ -46,19 +47,24 @@ export const useTasks = () => {
 
   const updateTaskMutation = useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<Task> }) => {
+      // We use select() without single() to avoid the coercion error if 0 rows are returned
       const { data, error } = await supabase
         .from("tasks")
         .update(updates)
         .eq("id", id)
-        .select()
-        .single();
+        .select();
 
       if (error) throw error;
-      return data;
+      
+      // If no rows were updated, it's usually an RLS permission issue
+      if (!data || data.length === 0) {
+        throw new Error("Update failed: You may not have permission to modify this task.");
+      }
+      
+      return data[0];
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
-      // We don't log activity here as it's usually handled by the caller for specific actions
     },
     onError: (error: any) => {
       toast.error(error.message || "Failed to update task");
