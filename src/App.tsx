@@ -10,7 +10,7 @@ import Team from "./pages/Team";
 import Profile from "./pages/Profile";
 import Reports from "./pages/Reports";
 import Login from "./pages/Login";
-import Register from "./pages/Register";
+import Signup from "./pages/Signup";
 import { useAuth } from "./hooks/useAuth";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
@@ -26,7 +26,8 @@ function App() {
       <Toaster position="top-right" richColors />
       <Routes>
         <Route path="/login" element={!user ? <Login /> : <Navigate to="/" />} />
-        <Route path="/register" element={!user ? <Register /> : <Navigate to="/" />} />
+        <Route path="/signup" element={!user ? <Signup /> : <Navigate to="/" />} />
+        <Route path="/register" element={<Navigate to="/signup" replace />} />
         
         <Route
           path="/"
