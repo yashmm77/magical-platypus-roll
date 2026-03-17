@@ -1,102 +1,87 @@
 "use client";
 
 import { useState } from "react";
-import { Users, Mail, Calendar, MoreVertical, UserPlus, Loader2, User, Lock, ShieldAlert } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
 import { useUsers } from "@/hooks/useUsers";
-import { supabase } from "@/lib/supabase";
-import { useQueryClient } from "@tanstack/react-query";
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogFooter,
+  DialogDescription
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { Users, UserPlus, Mail, Loader2, Lock, User } from "lucide-react";
+import { toast } from "sonner";
 
 const Team = () => {
   const { user, activeOrgId, userOrgs } = useAuth();
   const { data: members, isLoading } = useUsers();
   const queryClient = useQueryClient();
-  
-  // We'll keep the isAdmin logic for other potential uses, but we'll ensure the button shows up
-  const isAdmin = userOrgs.find(o => o.id === activeOrgId)?.role === 'admin' || true; 
-  
-  const [showInviteDialog, setShowInviteDialog] = useState(false);
-  const [inviting, setInviting] = useState(false);
-  const [inviteName, setInviteName] = useState("");
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [invitePassword, setInvitePassword] = useState("");
-  const [inviteRole, setInviteRole] = useState("member");
+  const isAdmin = userOrgs.find(o => o.id === activeOrgId)?.role === 'admin';
 
-  const handleInvite = async (e: React.FormEvent) => {
+  const [open, setOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'member' });
+
+  const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!activeOrgId) {
-      toast.error("Please select an organization first");
-      return;
-    }
+    if (!activeOrgId) return;
     
-    setInviting(true);
+    setSubmitting(true);
     try {
-      // a. Try to create user
+      // Step 1: create user via signUp
       const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-        email: inviteEmail,
-        password: invitePassword,
-        options: {
-          data: {
-            full_name: inviteName,
-          },
-        },
+        email: form.email,
+        password: form.password,
+        options: { data: { full_name: form.name } }
       });
 
       let userId = signUpData?.user?.id;
 
-      // c. If signUpError or !userId: fetch from profiles
-      if (signUpError || !userId) {
+      // Step 2: if user already exists, find their profile by email
+      if (!userId) {
         const { data: existing } = await supabase
-          .from("profiles")
-          .select("id")
-          .eq("email", inviteEmail)
+          .from('profiles')
+          .select('id')
+          .eq('email', form.email)
           .single();
-        
         userId = existing?.id;
-        if (userId) {
-          toast.info("User exists, linking to organization...");
-        }
       }
 
-      if (!userId) throw new Error("Could not resolve user ID");
+      if (!userId) throw new Error('Could not resolve user ID');
 
-      // d. Insert into org_members
-      const { error: memberError } = await supabase
-        .from("org_members")
-        .insert({
-          org_id: activeOrgId,
-          user_id: userId,
-          role: inviteRole
-        });
+      // Step 3: use the secure DB function to link user to org
+      const { error: linkError } = await supabase.rpc('add_member_to_org', {
+        p_user_id: userId,
+        p_org_id: activeOrgId,
+        p_role: form.role
+      });
+      
+      if (linkError) throw linkError;
 
-      if (memberError) {
-        if (memberError.code === '23505') {
-          throw new Error("User is already a member of this organization");
-        }
-        throw memberError;
-      }
-
-      // e. Success
-      toast.success("Member added!");
-      setShowInviteDialog(false);
-      setInviteName("");
-      setInviteEmail("");
-      setInvitePassword("");
-      setInviteRole("member");
-      queryClient.invalidateQueries({ queryKey: ["users", activeOrgId] });
-    } catch (error: any) {
-      toast.error(error.message || "Failed to add member");
+      toast.success('Member added successfully!');
+      setOpen(false);
+      setForm({ name: '', email: '', password: '', role: 'member' });
+      queryClient.invalidateQueries({ queryKey: ['users', activeOrgId] });
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to add member');
     } finally {
-      setInviting(false);
+      setSubmitting(false);
     }
   };
 
@@ -126,13 +111,15 @@ const Team = () => {
           <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Team Members</h1>
           <p className="text-slate-500 mt-1">Manage your team and their roles within this organization.</p>
         </div>
-        <Button 
-          onClick={() => setShowInviteDialog(true)}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2 shadow-md"
-        >
-          <UserPlus className="w-4 h-4" />
-          Invite Member
-        </Button>
+        {isAdmin && (
+          <Button 
+            onClick={() => setOpen(true)}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2 shadow-md"
+          >
+            <UserPlus className="w-4 h-4" />
+            Invite Member
+          </Button>
+        )}
       </div>
 
       {!members || members.length === 0 ? (
@@ -160,19 +147,6 @@ const Team = () => {
                       </div>
                     </div>
                   </div>
-                  {member.id !== user?.id && (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="text-slate-400">
-                          <MoreVertical className="w-4 h-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem>Edit Role</DropdownMenuItem>
-                        <DropdownMenuItem className="text-rose-600">Remove from Team</DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  )}
                 </div>
 
                 <div className="space-y-3">
@@ -187,26 +161,26 @@ const Team = () => {
         </div>
       )}
 
-      <Dialog open={showInviteDialog} onOpenChange={setShowInviteDialog}>
+      <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-[425px]">
-          <form onSubmit={handleInvite}>
+          <form onSubmit={handleAddMember}>
             <DialogHeader>
-              <DialogTitle>Add Team Member</DialogTitle>
+              <DialogTitle>Invite Team Member</DialogTitle>
               <DialogDescription>
-                Add a new member to your organization. If they already have an account, they will be linked to your team.
+                Add a new member to your organization. They will receive an email to join.
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="grid gap-2">
-                <Label htmlFor="fullName">Full Name</Label>
+                <Label htmlFor="name">Full Name</Label>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <Input
-                    id="fullName"
+                    id="name"
                     placeholder="Jane Doe"
                     className="pl-10"
-                    value={inviteName}
-                    onChange={(e) => setInviteName(e.target.value)}
+                    value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
                     required
                   />
                 </div>
@@ -220,8 +194,8 @@ const Team = () => {
                     type="email"
                     placeholder="jane@example.com"
                     className="pl-10"
-                    value={inviteEmail}
-                    onChange={(e) => setInviteEmail(e.target.value)}
+                    value={form.email}
+                    onChange={(e) => setForm({ ...form, email: e.target.value })}
                     required
                   />
                 </div>
@@ -235,8 +209,8 @@ const Team = () => {
                     type="password"
                     placeholder="••••••••"
                     className="pl-10"
-                    value={invitePassword}
-                    onChange={(e) => setInvitePassword(e.target.value)}
+                    value={form.password}
+                    onChange={(e) => setForm({ ...form, password: e.target.value })}
                     required
                   />
                 </div>
@@ -244,8 +218,8 @@ const Team = () => {
               <div className="grid gap-2">
                 <Label htmlFor="role">Role</Label>
                 <Select 
-                  value={inviteRole} 
-                  onValueChange={setInviteRole}
+                  value={form.role} 
+                  onValueChange={(val) => setForm({ ...form, role: val })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select a role" />
@@ -258,9 +232,9 @@ const Team = () => {
               </div>
             </div>
             <DialogFooter>
-              <Button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700" disabled={inviting}>
-                {inviting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                Add Member
+              <Button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700" disabled={submitting}>
+                {submitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                Invite Member
               </Button>
             </DialogFooter>
           </form>

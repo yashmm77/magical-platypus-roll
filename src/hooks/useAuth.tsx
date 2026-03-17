@@ -44,7 +44,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       setUserOrgs(orgs);
       
-      if (orgs.length === 1 && !activeOrgId) {
+      const saved = localStorage.getItem("active_org_id");
+      if (!saved && orgs.length === 1) {
         setActiveOrgId(orgs[0].id);
       }
     } catch (err) {
