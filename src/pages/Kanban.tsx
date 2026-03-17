@@ -54,13 +54,18 @@ const Kanban = () => {
     fetchTasks();
     const channel = supabase
       .channel('kanban-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, fetchTasks)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => {
+        // Only refetch if we're not currently in the middle of an optimistic update
+        if (!updatingTaskId) {
+          fetchTasks();
+        }
+      })
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [updatingTaskId]);
 
   const handleStatusChange = async (taskId: string, newStatus: string, taskTitle: string) => {
     setUpdatingTaskId(taskId);
@@ -70,17 +75,25 @@ const Kanban = () => {
     setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
 
     try {
-      const { error } = await supabase
+      const { error, data } = await supabase
         .from("tasks")
         .update({ status: newStatus })
-        .eq("id", taskId);
+        .eq("id", taskId)
+        .select();
 
       if (error) throw error;
+      
+      if (!data || data.length === 0) {
+        throw new Error("Task not found or you don't have permission to update it.");
+      }
+
       await logActivity(taskId, `Moved task "${taskTitle}" to ${newStatus}`);
       toast.success(`Task moved to ${newStatus}`);
+      
+      // Final sync
       fetchTasks();
     } catch (error: any) {
-      toast.error(error.message);
+      toast.error(error.message || "Failed to update task status");
       setTasks(originalTasks);
     } finally {
       setUpdatingTaskId(null);
