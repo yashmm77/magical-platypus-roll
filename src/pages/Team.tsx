@@ -20,9 +20,10 @@ const roleBadge: Record<string, string> = {
 };
 
 const Team = () => {
-  const { activeOrgId } = useAuth();
+  const { activeOrgId, userOrgs } = useAuth();
   const { data: users, isLoading } = useUsers();
   const queryClient = useQueryClient();
+  const isAdmin = userOrgs.find((o) => o.id === activeOrgId)?.role === 'admin';
 
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -74,13 +75,15 @@ const Team = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-slate-800">Team Members</h1>
-        <Button
-          className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2"
-          onClick={() => setOpen(true)}
-        >
-          <Plus className="w-4 h-4" />
-          Add Member
-        </Button>
+        {isAdmin && (
+          <Button
+            className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2"
+            onClick={() => setOpen(true)}
+          >
+            <Plus className="w-4 h-4" />
+            Add Member
+          </Button>
+        )}
       </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
