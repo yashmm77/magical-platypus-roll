@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, CheckSquare, User, Settings, Trello, List, Calendar, Menu, BarChart3, Loader2 } from 'lucide-react';
+import { LayoutDashboard, CheckSquare, User, Settings, Trello, List, Calendar, Menu, BarChart3, Loader2, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
@@ -144,7 +144,7 @@ const Layout = ({ children }: LayoutProps) => {
       <div className="flex-1 flex flex-col min-w-0 relative">
         {/* Header */}
         <header className="h-16 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-4 md:px-8 shrink-0 z-30">
-          <div className="flex items-center gap-4 flex-1">
+          <div className="flex items-center gap-2 md:gap-4 flex-1">
             {/* Mobile Menu Trigger */}
             <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
               <SheetTrigger asChild>
@@ -160,23 +160,25 @@ const Layout = ({ children }: LayoutProps) => {
               </SheetContent>
             </Sheet>
 
-            <Link to="/" className="lg:hidden text-indigo-600">
+            <Link to="/" className="lg:hidden text-indigo-600 shrink-0">
               <CheckSquare className="w-8 h-8" />
             </Link>
             
-            <div className="flex-1 max-w-md hidden sm:block">
+            <div className="flex-1 max-w-md">
               <GlobalSearch />
             </div>
           </div>
           
-          <div className="flex items-center gap-2 md:gap-4">
-            <CreateTaskDialog />
-            <div className="flex items-center gap-1 border-l border-slate-200 dark:border-slate-800 pl-2 md:pl-4">
+          <div className="flex items-center gap-1 md:gap-4 ml-2">
+            <div className="hidden sm:block">
+              <CreateTaskDialog />
+            </div>
+            <div className="flex items-center gap-1 border-l border-slate-200 dark:border-slate-800 pl-1 md:pl-4">
               <Notifications />
               <ThemeToggle />
             </div>
             {user && (
-              <Link to="/profile" className="flex items-center gap-3 hover:bg-slate-50 dark:hover:bg-slate-800 p-1 rounded-lg transition-colors">
+              <Link to="/profile" className="flex items-center gap-2 hover:bg-slate-50 dark:hover:bg-slate-800 p-1 rounded-lg transition-colors">
                 <Avatar className="w-8 h-8 border border-indigo-100 dark:border-indigo-900/30">
                   <AvatarImage src={profile?.avatar_url} />
                   <AvatarFallback className="bg-indigo-600 text-white text-[10px] font-bold">
@@ -196,22 +198,22 @@ const Layout = ({ children }: LayoutProps) => {
           </div>
         </header>
 
-        {/* Mobile Search (Visible only on small screens) */}
-        <div className="p-3 sm:hidden bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shrink-0">
-          <GlobalSearch />
-        </div>
-
         {/* Page Content Wrapper */}
         <div 
           ref={contentRef}
           className="flex-1 overflow-y-auto overflow-x-hidden bg-slate-50 dark:bg-slate-950 scroll-smooth"
         >
-          <div 
+          <main 
             key={location.pathname}
-            className="p-4 md:p-8 max-w-[1600px] mx-auto"
+            className="p-4 md:p-8 max-w-[1600px] mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both"
           >
             {children}
-          </div>
+          </main>
+        </div>
+
+        {/* Mobile Floating Action Button for Create Task */}
+        <div className="sm:hidden fixed bottom-6 right-6 z-50">
+          <CreateTaskDialog />
         </div>
       </div>
     </div>
