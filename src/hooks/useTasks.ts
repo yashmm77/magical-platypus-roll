@@ -44,6 +44,27 @@ export const useTasks = () => {
     },
   });
 
+  const updateTaskMutation = useMutation({
+    mutationFn: async ({ id, updates }: { id: string; updates: Partial<Task> }) => {
+      const { data, error } = await supabase
+        .from("tasks")
+        .update(updates)
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      // We don't log activity here as it's usually handled by the caller for specific actions
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Failed to update task");
+    },
+  });
+
   const deleteTaskMutation = useMutation({
     mutationFn: async ({ id, title }: { id: string; title: string }) => {
       await logActivity(id, `Deleted task: ${title}`);
@@ -66,8 +87,11 @@ export const useTasks = () => {
   return {
     tasks: tasksQuery.data || [],
     isLoading: tasksQuery.isLoading,
+    refetchTasks: tasksQuery.refetch,
     createTask: createTaskMutation.mutate,
     isCreating: createTaskMutation.isPending,
+    updateTask: updateTaskMutation.mutateAsync,
+    isUpdating: updateTaskMutation.isPending,
     deleteTask: deleteTaskMutation.mutate,
     isDeleting: deleteTaskMutation.isPending,
   };

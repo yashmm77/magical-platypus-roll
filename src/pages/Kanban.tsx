@@ -10,12 +10,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Loader2, Plus, Calendar, User, RefreshCw, Eye, MoreVertical, Inbox, X } from "lucide-react";
 import { TaskModal } from "@/components/TaskModal";
 import { useUsers } from "@/hooks/useUsers";
+import { useTasks } from "@/hooks/useTasks";
 import { toast } from "sonner";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { logActivity } from "@/utils/activity";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
+import { useQueryClient } from "@tanstack/react-query";
 
 const COLUMNS = [
   { id: "Todo", title: "To Do", color: "bg-slate-100" },
@@ -25,9 +27,10 @@ const COLUMNS = [
 
 const Kanban = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { data: users } = useUsers();
-  const [tasks, setTasks] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { tasks, isLoading, updateTask, refetchTasks } = useTasks();
+  
   const [enabled, setEnabled] = useState(false);
   const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
@@ -35,34 +38,14 @@ const Kanban = () => {
   const [defaultStatus, setDefaultStatus] = useState<"Todo" | "In Progress" | "Done">("Todo");
   const [assigneeFilter, setAssigneeFilter] = useState("all");
 
-  const fetchTasks = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("tasks")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      setTasks(data || []);
-    } catch (error: any) {
-      toast.error(error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    fetchTasks();
-    
     // Fix for DND initialization in React 18/19
     const animation = requestAnimationFrame(() => setEnabled(true));
 
     const channel = supabase
-      .channel('kanban-changes')
+      .channel('kanban-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => {
-        if (!updatingTaskId) {
-          fetchTasks();
-        }
+        queryClient.invalidateQueries({ queryKey: ["tasks"] });
       })
       .subscribe();
 
@@ -70,35 +53,19 @@ const Kanban = () => {
       cancelAnimationFrame(animation);
       supabase.removeChannel(channel);
     };
-  }, [updatingTaskId]);
+  }, [queryClient]);
 
   const handleStatusChange = async (taskId: string, newStatus: string, taskTitle: string) => {
     setUpdatingTaskId(taskId);
-    const originalTasks = [...tasks];
-    
-    // Optimistic update
-    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
-
     try {
-      const { error, data } = await supabase
-        .from("tasks")
-        .update({ status: newStatus })
-        .eq("id", taskId)
-        .select();
-
-      if (error) throw error;
-      
-      if (!data || data.length === 0) {
-        throw new Error("You don't have permission to update this task.");
-      }
-
+      await updateTask({ 
+        id: taskId, 
+        updates: { status: newStatus as any } 
+      });
       await logActivity(taskId, `Moved task "${taskTitle}" to ${newStatus}`);
       toast.success(`Task moved to ${newStatus}`);
-      
-      fetchTasks();
     } catch (error: any) {
-      toast.error(error.message || "Failed to update task status");
-      setTasks(originalTasks);
+      // Error is already toasted in useTasks
     } finally {
       setUpdatingTaskId(null);
     }
@@ -142,7 +109,7 @@ const Kanban = () => {
     setModalOpen(true);
   };
 
-  if (loading || !enabled) {
+  if (isLoading || !enabled) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
         <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
@@ -179,7 +146,7 @@ const Kanban = () => {
               </Button>
             )}
           </div>
-          <Button variant="outline" size="icon" onClick={fetchTasks} className="text-slate-500 h-9 w-9">
+          <Button variant="outline" size="icon" onClick={() => refetchTasks()} className="text-slate-500 h-9 w-9">
             <RefreshCw className="w-4 h-4" />
           </Button>
         </div>
@@ -323,7 +290,7 @@ const Kanban = () => {
         onOpenChange={setModalOpen} 
         task={selectedTask} 
         defaultStatus={defaultStatus}
-        onSuccess={fetchTasks} 
+        onSuccess={() => queryClient.invalidateQueries({ queryKey: ["tasks"] })} 
       />
     </div>
   );
