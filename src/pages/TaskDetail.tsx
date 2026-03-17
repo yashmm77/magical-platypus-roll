@@ -26,7 +26,6 @@ import { toast } from "sonner";
 import { TaskModal } from "@/components/TaskModal";
 import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
 import { logActivity } from "@/utils/activity";
-import { SubtaskList } from "@/components/SubtaskList";
 
 const TaskDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -238,12 +237,6 @@ const TaskDetail = () => {
                   </div>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-none shadow-sm bg-white dark:bg-slate-900">
-            <CardContent className="p-6">
-              <SubtaskList taskId={id!} />
             </CardContent>
           </Card>
 
