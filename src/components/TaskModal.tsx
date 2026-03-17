@@ -70,16 +70,26 @@ export const TaskModal = ({ open, onOpenChange, task, onSuccess }: TaskModalProp
     setIsSubmitting(true);
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("You must be logged in");
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError) throw authError;
+      if (!user) throw new Error("You must be logged in to manage tasks");
 
-      const payload = {
+      // Get the user's first organization to satisfy strict RLS if it exists
+      const { data: orgMember } = await supabase
+        .from("org_members")
+        .select("org_id")
+        .eq("user_id", user.id)
+        .limit(1)
+        .maybeSingle();
+
+      const payload: any = {
         title: formData.title.trim(),
         description: formData.description.trim() || null,
         status: formData.status,
         priority: formData.priority,
         assigned_to: formData.assigned_to || null,
         due_date: formData.due_date,
+        org_id: orgMember?.org_id || null,
       };
 
       if (isEditMode && task) {
@@ -102,14 +112,17 @@ export const TaskModal = ({ open, onOpenChange, task, onSuccess }: TaskModalProp
           .single();
 
         if (error) throw error;
-        await logActivity(data.id, `Created task: ${formData.title}`);
+        if (data) {
+          await logActivity(data.id, `Created task: ${formData.title}`);
+        }
         toast.success("Task created successfully!");
       }
 
       onOpenChange(false);
       if (onSuccess) onSuccess();
     } catch (error: any) {
-      toast.error(error.message || "Failed to save task");
+      console.error("Task operation failed:", error);
+      toast.error(error.message || "Failed to save task. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -117,7 +130,7 @@ export const TaskModal = ({ open, onOpenChange, task, onSuccess }: TaskModalProp
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px] w-[95vw] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[500px]">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>{isEditMode ? "Edit Task" : "Create New Task"}</DialogTitle>
@@ -145,7 +158,7 @@ export const TaskModal = ({ open, onOpenChange, task, onSuccess }: TaskModalProp
               />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="status">Status</Label>
                 <Select
@@ -180,7 +193,7 @@ export const TaskModal = ({ open, onOpenChange, task, onSuccess }: TaskModalProp
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="assignee">Assign To</Label>
                 <Select
@@ -208,6 +221,7 @@ export const TaskModal = ({ open, onOpenChange, task, onSuccess }: TaskModalProp
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
+                      type="button"
                       className={cn(
                         "w-full justify-start text-left font-normal",
                         !formData.due_date && "text-muted-foreground"
