@@ -1,11 +1,9 @@
 "use client";
 
-import { useMemo } from "react";
-import { useTasks } from "@/hooks/useTasks";
-import { useUsers } from "@/hooks/useUsers";
+import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Loader2, BarChart3, TrendingUp, Users, CheckCircle2, Clock, AlertCircle, PieChart as PieChartIcon, RefreshCw } from "lucide-react";
+import { Loader2, BarChart3, TrendingUp, Users, CheckCircle2, Clock, AlertCircle, PieChart as PieChartIcon } from "lucide-react";
 import { 
   BarChart, 
   Bar, 
@@ -21,113 +19,87 @@ import {
   Cell,
   Legend
 } from 'recharts';
-import { format, subDays, eachDayOfInterval, isSameDay, parseISO } from "date-fns";
-import { useQueryClient } from "@tanstack/react-query";
+import { format, subDays, eachDayOfInterval } from "date-fns";
 
 const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
 const Reports = () => {
-  const queryClient = useQueryClient();
-  const { tasks, isLoading: tasksLoading, error: tasksError } = useTasks();
-  const { data: profiles, isLoading: profilesLoading, error: profilesError } = useUsers();
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState<any>(null);
+  const [dailyData, setDailyData] = useState<any[]>([]);
+  const [workloadData, setWorkloadData] = useState<any[]>([]);
+  const [priorityData, setPriorityData] = useState<any[]>([]);
 
-  const loading = tasksLoading || profilesLoading;
-  const error = tasksError || profilesError;
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      // Fetch summary stats
+      const { data: summary } = await supabase.from("task_summary").select("*").single();
+      
+      // Fetch all tasks for detailed analysis
+      const { data: allTasks } = await supabase
+        .from("tasks")
+        .select("created_at, status, priority, assigned_to");
 
-  const handleRefresh = () => {
-    queryClient.invalidateQueries({ queryKey: ["tasks"] });
-    queryClient.invalidateQueries({ queryKey: ["users"] });
+      // Fetch profiles for workload mapping
+      const { data: profiles } = await supabase.from("profiles").select("id, full_name");
+
+      // 1. Process daily trends (last 7 days)
+      const last7Days = eachDayOfInterval({
+        start: subDays(new Date(), 6),
+        end: new Date()
+      });
+
+      const trendData = last7Days.map(day => {
+        const dayStr = format(day, "MMM d");
+        const dayTasks = allTasks?.filter(t => 
+          format(new Date(t.created_at), "yyyy-MM-dd") === format(day, "yyyy-MM-dd")
+        ) || [];
+
+        return {
+          name: dayStr,
+          created: dayTasks.length,
+          completed: dayTasks.filter(t => t.status === 'done').length
+        };
+      });
+
+      // 2. Process workload by member
+      const workload = profiles?.map(profile => {
+        const userTasks = allTasks?.filter(t => t.assigned_to === profile.id) || [];
+        return {
+          name: profile.full_name?.split(' ')[0] || "Unknown",
+          tasks: userTasks.length,
+          completed: userTasks.filter(t => t.status === 'done').length,
+          pending: userTasks.filter(t => t.status !== 'done').length
+        };
+      }).filter(w => w.tasks > 0).sort((a, b) => b.tasks - a.tasks) || [];
+
+      // 3. Process priority breakdown
+      const priorities = ['low', 'medium', 'high'];
+      const priorityBreakdown = priorities.map(p => ({
+        name: p.charAt(0).toUpperCase() + p.slice(1),
+        value: allTasks?.filter(t => t.priority === p).length || 0
+      })).filter(p => p.value > 0);
+
+      setStats(summary);
+      setDailyData(trendData);
+      setWorkloadData(workload);
+      setPriorityData(priorityBreakdown);
+    } catch (err) {
+      console.error("Error fetching report data:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const { stats, dailyData, workloadData, priorityData } = useMemo(() => {
-    if (!tasks || tasks.length === 0) {
-      return {
-        stats: { total_tasks: 0, completed_tasks: 0, pending_tasks: 0, overdue_tasks: 0 },
-        dailyData: [],
-        workloadData: [],
-        priorityData: []
-      };
-    }
-
-    // 1. Summary Stats
-    const total_tasks = tasks.length;
-    const completed_tasks = tasks.filter(t => t.status === 'Done').length;
-    const pending_tasks = tasks.filter(t => t.status !== 'Done').length;
-    const overdue_tasks = tasks.filter(t => {
-      if (t.status === 'Done' || !t.due_date) return false;
-      return new Date(t.due_date) < new Date();
-    }).length;
-
-    const stats = { total_tasks, completed_tasks, pending_tasks, overdue_tasks };
-
-    // 2. Daily trends (last 7 days)
-    const last7Days = eachDayOfInterval({
-      start: subDays(new Date(), 6),
-      end: new Date()
-    });
-
-    const dailyData = last7Days.map(day => {
-      const dayStr = format(day, "MMM d");
-      const dayTasks = tasks.filter(t => isSameDay(parseISO(t.created_at), day));
-
-      return {
-        name: dayStr,
-        created: dayTasks.length,
-        completed: tasks.filter(t => t.status === 'Done' && t.updated_at && isSameDay(parseISO(t.updated_at), day)).length
-      };
-    });
-
-    // 3. Workload by member
-    const workloadData = profiles?.map(profile => {
-      const userTasks = tasks.filter(t => t.assigned_to === profile.id);
-      return {
-        name: profile.full_name?.split(' ')[0] || "Unknown",
-        tasks: userTasks.length,
-        completed: userTasks.filter(t => t.status === 'Done').length,
-        pending: userTasks.filter(t => t.status !== 'Done').length
-      };
-    }).filter(w => w.tasks > 0).sort((a, b) => b.tasks - a.tasks) || [];
-
-    // 4. Priority breakdown
-    const priorities = ['low', 'medium', 'high'];
-    const priorityData = priorities.map(p => ({
-      name: p.charAt(0).toUpperCase() + p.slice(1),
-      value: tasks.filter(t => t.priority === p).length
-    })).filter(p => p.value > 0);
-
-    return { stats, dailyData, workloadData, priorityData };
-  }, [tasks, profiles]);
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   if (loading) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
         <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-[60vh] flex flex-col items-center justify-center space-y-4">
-        <AlertCircle className="w-12 h-12 text-rose-500" />
-        <h2 className="text-xl font-semibold text-slate-900 dark:text-white">Failed to load reports</h2>
-        <p className="text-slate-500">{(error as Error).message || "An unexpected error occurred."}</p>
-        <Button onClick={handleRefresh} variant="outline" className="mt-4">
-          Try Again
-        </Button>
-      </div>
-    );
-  }
-
-  if (!tasks || tasks.length === 0) {
-    return (
-      <div className="min-h-[60vh] flex flex-col items-center justify-center space-y-4">
-        <BarChart3 className="w-12 h-12 text-slate-300" />
-        <h2 className="text-xl font-semibold text-slate-900 dark:text-white">No data available</h2>
-        <p className="text-slate-500">Create some tasks to see analytics and reports.</p>
-        <Button onClick={handleRefresh} variant="outline" className="mt-4">
-          Refresh Data
-        </Button>
       </div>
     );
   }
@@ -139,15 +111,6 @@ const Reports = () => {
           <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Reports & Analytics</h1>
           <p className="text-slate-500 mt-1">Track your team's performance and task completion trends.</p>
         </div>
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={handleRefresh}
-          className="gap-2"
-        >
-          <RefreshCw className="w-4 h-4" />
-          Refresh
-        </Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -155,13 +118,13 @@ const Reports = () => {
           <CardHeader className="pb-2">
             <CardDescription>Completion Rate</CardDescription>
             <CardTitle className="text-3xl font-bold text-emerald-600 dark:text-emerald-500">
-              {stats.total_tasks ? Math.round((stats.completed_tasks / stats.total_tasks) * 100) : 0}%
+              {stats?.total_tasks ? Math.round((stats.completed_tasks / stats.total_tasks) * 100) : 0}%
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-2 text-sm text-slate-500">
               <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-              <span>{stats.completed_tasks} tasks finished</span>
+              <span>{stats?.completed_tasks} tasks finished</span>
             </div>
           </CardContent>
         </Card>
@@ -169,7 +132,7 @@ const Reports = () => {
           <CardHeader className="pb-2">
             <CardDescription>Active Workload</CardDescription>
             <CardTitle className="text-3xl font-bold text-indigo-600 dark:text-indigo-400">
-              {stats.pending_tasks}
+              {stats?.pending_tasks || 0}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -183,13 +146,13 @@ const Reports = () => {
           <CardHeader className="pb-2">
             <CardDescription>Overdue Ratio</CardDescription>
             <CardTitle className="text-3xl font-bold text-rose-600 dark:text-rose-500">
-              {stats.total_tasks ? Math.round((stats.overdue_tasks / stats.total_tasks) * 100) : 0}%
+              {stats?.total_tasks ? Math.round((stats.overdue_tasks / stats.total_tasks) * 100) : 0}%
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-2 text-sm text-slate-500">
               <AlertCircle className="w-4 h-4 text-rose-500" />
-              <span>{stats.overdue_tasks} tasks past due</span>
+              <span>{stats?.overdue_tasks} tasks past due</span>
             </div>
           </CardContent>
         </Card>

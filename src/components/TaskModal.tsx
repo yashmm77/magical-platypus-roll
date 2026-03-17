@@ -31,7 +31,7 @@ export const TaskModal = ({ open, onOpenChange, task, onSuccess }: TaskModalProp
   const [formData, setFormData] = useState({
     title: "",
     description: "",
-    status: "Todo" as "Todo" | "In Progress" | "Done",
+    status: "todo" as "todo" | "in_progress" | "done",
     priority: "medium" as "low" | "medium" | "high",
     assigned_to: "" as string | null,
     due_date: null as string | null,
@@ -45,7 +45,7 @@ export const TaskModal = ({ open, onOpenChange, task, onSuccess }: TaskModalProp
         setFormData({
           title: task.title || "",
           description: task.description || "",
-          status: task.status || "Todo",
+          status: task.status || "todo",
           priority: task.priority || "medium",
           assigned_to: task.assigned_to || null,
           due_date: task.due_date || null,
@@ -54,7 +54,7 @@ export const TaskModal = ({ open, onOpenChange, task, onSuccess }: TaskModalProp
         setFormData({
           title: "",
           description: "",
-          status: "Todo",
+          status: "todo",
           priority: "medium",
           assigned_to: null,
           due_date: null,
@@ -156,9 +156,9 @@ export const TaskModal = ({ open, onOpenChange, task, onSuccess }: TaskModalProp
                     <SelectValue placeholder="Select status" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Todo">Todo</SelectItem>
-                    <SelectItem value="In Progress">In Progress</SelectItem>
-                    <SelectItem value="Done">Completed</SelectItem>
+                    <SelectItem value="todo">Todo</SelectItem>
+                    <SelectItem value="in_progress">In Progress</SelectItem>
+                    <SelectItem value="done">Completed</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

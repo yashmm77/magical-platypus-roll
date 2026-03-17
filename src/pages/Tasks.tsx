@@ -77,9 +77,9 @@ const Tasks = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "Todo": return "bg-slate-100 text-slate-700";
-      case "In Progress": return "bg-blue-50 text-blue-700";
-      case "Done": return "bg-emerald-50 text-emerald-700";
+      case "todo": return "bg-slate-100 text-slate-700";
+      case "in_progress": return "bg-blue-50 text-blue-700";
+      case "done": return "bg-emerald-50 text-emerald-700";
       default: return "bg-slate-100 text-slate-700";
     }
   };
@@ -118,9 +118,9 @@ const Tasks = () => {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Statuses</SelectItem>
-            <SelectItem value="Todo">To Do</SelectItem>
-            <SelectItem value="In Progress">In Progress</SelectItem>
-            <SelectItem value="Done">Completed</SelectItem>
+            <SelectItem value="todo">To Do</SelectItem>
+            <SelectItem value="in_progress">In Progress</SelectItem>
+            <SelectItem value="done">Completed</SelectItem>
           </SelectContent>
         </Select>
         <Select value={priorityFilter} onValueChange={setPriorityFilter}>
@@ -174,7 +174,7 @@ const Tasks = () => {
                     <TableCell className="font-medium text-slate-900 dark:text-slate-100">{task.title}</TableCell>
                     <TableCell>
                       <Badge variant="outline" className={`capitalize ${getStatusColor(task.status)}`}>
-                        {task.status}
+                        {task.status.replace('_', ' ')}
                       </Badge>
                     </TableCell>
                     <TableCell>
