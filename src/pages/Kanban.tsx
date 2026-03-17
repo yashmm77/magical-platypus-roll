@@ -28,6 +28,7 @@ const Kanban = () => {
   const { data: users } = useUsers();
   const [tasks, setTasks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [enabled, setEnabled] = useState(false);
   const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<any>(null);
@@ -52,6 +53,10 @@ const Kanban = () => {
 
   useEffect(() => {
     fetchTasks();
+    
+    // Fix for DND initialization in React 18/19
+    const animation = requestAnimationFrame(() => setEnabled(true));
+
     const channel = supabase
       .channel('kanban-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => {
@@ -62,6 +67,7 @@ const Kanban = () => {
       .subscribe();
 
     return () => {
+      cancelAnimationFrame(animation);
       supabase.removeChannel(channel);
     };
   }, [updatingTaskId]);
@@ -82,7 +88,6 @@ const Kanban = () => {
 
       if (error) throw error;
       
-      // If data is empty, it means RLS blocked the update
       if (!data || data.length === 0) {
         throw new Error("You don't have permission to update this task.");
       }
@@ -137,7 +142,7 @@ const Kanban = () => {
     setModalOpen(true);
   };
 
-  if (loading) {
+  if (loading || !enabled) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
         <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
@@ -230,7 +235,6 @@ const Kanban = () => {
                                 {...provided.draggableProps}
                                 {...provided.dragHandleProps}
                                 className={cn(
-                                  "transition-transform",
                                   snapshot.isDragging && "z-50"
                                 )}
                               >
