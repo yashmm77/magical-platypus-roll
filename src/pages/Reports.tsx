@@ -51,10 +51,10 @@ const Reports = () => {
 
     // 1. Summary Stats
     const total_tasks = tasks.length;
-    const completed_tasks = tasks.filter(t => t.status === 'done').length;
-    const pending_tasks = tasks.filter(t => t.status !== 'done').length;
+    const completed_tasks = tasks.filter(t => t.status === 'Done').length;
+    const pending_tasks = tasks.filter(t => t.status !== 'Done').length;
     const overdue_tasks = tasks.filter(t => {
-      if (t.status === 'done' || !t.due_date) return false;
+      if (t.status === 'Done' || !t.due_date) return false;
       return new Date(t.due_date) < new Date();
     }).length;
 
@@ -73,7 +73,7 @@ const Reports = () => {
       return {
         name: dayStr,
         created: dayTasks.length,
-        completed: tasks.filter(t => t.status === 'done' && t.updated_at && isSameDay(parseISO(t.updated_at), day)).length
+        completed: tasks.filter(t => t.status === 'Done' && t.updated_at && isSameDay(parseISO(t.updated_at), day)).length
       };
     });
 
@@ -83,8 +83,8 @@ const Reports = () => {
       return {
         name: profile.full_name?.split(' ')[0] || "Unknown",
         tasks: userTasks.length,
-        completed: userTasks.filter(t => t.status === 'done').length,
-        pending: userTasks.filter(t => t.status !== 'done').length
+        completed: userTasks.filter(t => t.status === 'Done').length,
+        pending: userTasks.filter(t => t.status !== 'Done').length
       };
     }).filter(w => w.tasks > 0).sort((a, b) => b.tasks - a.tasks) || [];
 
