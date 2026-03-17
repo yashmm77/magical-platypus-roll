@@ -41,10 +41,9 @@ const Tasks = () => {
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
   
-  // Modal states
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleteTaskInfo, setDeleteTaskInfo] = useState<{ id: string; title: string } | null>(null);
 
   const filteredTasks = useMemo(() => {
     return tasks.filter(task => {
@@ -89,11 +88,6 @@ const Tasks = () => {
     setModalOpen(true);
   };
 
-  const clearFilters = () => {
-    setStatusFilter("all");
-    setPriorityFilter("all");
-  };
-
   if (isLoading) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
@@ -135,7 +129,7 @@ const Tasks = () => {
           </SelectContent>
         </Select>
         {(statusFilter !== "all" || priorityFilter !== "all") && (
-          <Button variant="ghost" size="sm" onClick={clearFilters} className="text-slate-500">
+          <Button variant="ghost" size="sm" onClick={() => { setStatusFilter("all"); setPriorityFilter("all"); }} className="text-slate-500">
             <X className="w-4 h-4 mr-2" /> Clear
           </Button>
         )}
@@ -162,7 +156,7 @@ const Tasks = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredTasks.length === 0 ? (
+              {sortedTasks.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} className="text-center py-12 text-slate-500">
                     No tasks found matching your criteria.
@@ -192,7 +186,6 @@ const Tasks = () => {
                           size="icon" 
                           onClick={() => navigate(`/tasks/${task.id}`)}
                           className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 h-8 w-8"
-                          title="View Details"
                         >
                           <Eye className="w-4 h-4" />
                         </Button>
@@ -201,16 +194,14 @@ const Tasks = () => {
                           size="icon" 
                           onClick={() => handleEditTask(task)}
                           className="text-amber-600 hover:text-amber-700 hover:bg-amber-50 h-8 w-8"
-                          title="Edit Task"
                         >
                           <Pencil className="w-4 h-4" />
                         </Button>
                         <Button 
                           variant="ghost" 
                           size="icon" 
-                          onClick={() => setDeleteId(task.id)}
+                          onClick={() => setDeleteTaskInfo({ id: task.id, title: task.title })}
                           className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-                          title="Delete Task"
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>
@@ -228,20 +219,21 @@ const Tasks = () => {
         open={modalOpen} 
         onOpenChange={setModalOpen} 
         task={selectedTask} 
-        onSuccess={() => {}} 
       />
 
       <DeleteConfirmDialog 
-        open={!!deleteId} 
-        onOpenChange={(open) => !open && setDeleteId(null)}
+        open={!!deleteTaskInfo} 
+        onOpenChange={(open) => !open && setDeleteTaskInfo(null)}
         loading={isDeleting}
         onConfirm={() => {
-          if (deleteId) {
-            deleteTask(deleteId, {
-              onSuccess: () => setDeleteId(null)
+          if (deleteTaskInfo) {
+            deleteTask(deleteTaskInfo, {
+              onSuccess: () => setDeleteTaskInfo(null)
             });
           }
         }}
+        title="Delete Task"
+        description={`Are you sure you want to delete "${deleteTaskInfo?.title}"? This action cannot be undone.`}
       />
     </div>
   );

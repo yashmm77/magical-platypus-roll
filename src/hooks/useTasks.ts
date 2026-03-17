@@ -1,7 +1,10 @@
+"use client";
+
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { Task } from "@/types";
 import { toast } from "sonner";
+import { logActivity } from "@/utils/activity";
 
 export const useTasks = () => {
   const queryClient = useQueryClient();
@@ -31,8 +34,9 @@ export const useTasks = () => {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      logActivity(data.id, `Created task: ${data.title}`);
       toast.success("Task created successfully!");
     },
     onError: (error: any) => {
@@ -41,11 +45,12 @@ export const useTasks = () => {
   });
 
   const deleteTaskMutation = useMutation({
-    mutationFn: async (taskId: string) => {
+    mutationFn: async ({ id, title }: { id: string; title: string }) => {
+      await logActivity(id, `Deleted task: ${title}`);
       const { error } = await supabase
         .from("tasks")
         .delete()
-        .eq("id", taskId);
+        .eq("id", id);
 
       if (error) throw error;
     },
