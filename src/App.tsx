@@ -12,6 +12,7 @@ import Reports from "./pages/Reports";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import { useAuth } from "./hooks/useAuth";
+import { ProtectedRoute } from "./components/ProtectedRoute";
 
 function App() {
   const { user, loading } = useAuth();
@@ -29,36 +30,69 @@ function App() {
         
         <Route
           path="/"
-          element={user ? <Layout><Index /></Layout> : <Navigate to="/login" />}
+          element={
+            <ProtectedRoute>
+              <Layout><Index /></Layout>
+            </ProtectedRoute>
+          }
         />
         <Route
           path="/kanban"
-          element={user ? <Layout><Kanban /></Layout> : <Navigate to="/login" />}
+          element={
+            <ProtectedRoute>
+              <Layout><Kanban /></Layout>
+            </ProtectedRoute>
+          }
         />
         <Route
           path="/tasks"
-          element={user ? <Layout><Tasks /></Layout> : <Navigate to="/login" />}
+          element={
+            <ProtectedRoute>
+              <Layout><Tasks /></Layout>
+            </ProtectedRoute>
+          }
         />
         <Route
           path="/calendar"
-          element={user ? <Layout><Calendar /></Layout> : <Navigate to="/login" />}
+          element={
+            <ProtectedRoute>
+              <Layout><Calendar /></Layout>
+            </ProtectedRoute>
+          }
         />
         <Route
           path="/reports"
-          element={user ? <Layout><Reports /></Layout> : <Navigate to="/login" />}
+          element={
+            <ProtectedRoute>
+              <Layout><Reports /></Layout>
+            </ProtectedRoute>
+          }
         />
         <Route
           path="/tasks/:id"
-          element={user ? <Layout><TaskDetail /></Layout> : <Navigate to="/login" />}
+          element={
+            <ProtectedRoute>
+              <Layout><TaskDetail /></Layout>
+            </ProtectedRoute>
+          }
         />
         <Route
           path="/team"
-          element={user ? <Layout><Team /></Layout> : <Navigate to="/login" />}
+          element={
+            <ProtectedRoute>
+              <Layout><Team /></Layout>
+            </ProtectedRoute>
+          }
         />
         <Route
           path="/profile"
-          element={user ? <Layout><Profile /></Layout> : <Navigate to="/login" />}
+          element={
+            <ProtectedRoute>
+              <Layout><Profile /></Layout>
+            </ProtectedRoute>
+          }
         />
+        <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </Router>
   );

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "../integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -86,7 +86,7 @@ const Login = () => {
             </Button>
             <p className="text-sm text-center text-slate-600">
               Don't have an account?{" "}
-              <Link to="/signup" className="text-indigo-600 font-semibold hover:underline">
+              <Link to="/register" className="text-indigo-600 font-semibold hover:underline">
                 Sign up
               </Link>
             </p>
