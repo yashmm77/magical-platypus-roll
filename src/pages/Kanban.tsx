@@ -55,7 +55,6 @@ const Kanban = () => {
     const channel = supabase
       .channel('kanban-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => {
-        // Only refetch if we're not currently in the middle of an optimistic update
         if (!updatingTaskId) {
           fetchTasks();
         }
@@ -83,14 +82,14 @@ const Kanban = () => {
 
       if (error) throw error;
       
+      // If data is empty, it means RLS blocked the update
       if (!data || data.length === 0) {
-        throw new Error("Task not found or you don't have permission to update it.");
+        throw new Error("You don't have permission to update this task.");
       }
 
       await logActivity(taskId, `Moved task "${taskTitle}" to ${newStatus}`);
       toast.success(`Task moved to ${newStatus}`);
       
-      // Final sync
       fetchTasks();
     } catch (error: any) {
       toast.error(error.message || "Failed to update task status");
