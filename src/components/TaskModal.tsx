@@ -22,10 +22,11 @@ interface TaskModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   task?: Task | null;
+  defaultStatus?: "Todo" | "In Progress" | "Done";
   onSuccess?: () => void;
 }
 
-export const TaskModal = ({ open, onOpenChange, task, onSuccess }: TaskModalProps) => {
+export const TaskModal = ({ open, onOpenChange, task, defaultStatus, onSuccess }: TaskModalProps) => {
   const { data: users } = useUsers();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
@@ -54,14 +55,14 @@ export const TaskModal = ({ open, onOpenChange, task, onSuccess }: TaskModalProp
         setFormData({
           title: "",
           description: "",
-          status: "Todo",
+          status: defaultStatus || "Todo",
           priority: "medium",
           assigned_to: null,
           due_date: null,
         });
       }
     }
-  }, [open, task]);
+  }, [open, task, defaultStatus]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
