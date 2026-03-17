@@ -16,9 +16,9 @@ import { logActivity } from "@/utils/activity";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 
 const COLUMNS = [
-  { id: "todo", title: "To Do", color: "bg-slate-100" },
-  { id: "in_progress", title: "In Progress", color: "bg-blue-50" },
-  { id: "done", title: "Completed", color: "bg-emerald-50" },
+  { id: "Todo", title: "To Do", color: "bg-slate-100" },
+  { id: "In Progress", title: "In Progress", color: "bg-blue-50" },
+  { id: "Done", title: "Completed", color: "bg-emerald-50" },
 ];
 
 const Kanban = () => {
@@ -73,8 +73,8 @@ const Kanban = () => {
         .eq("id", taskId);
 
       if (error) throw error;
-      await logActivity(taskId, `Moved task "${taskTitle}" to ${newStatus.replace('_', ' ')}`);
-      toast.success(`Task moved to ${newStatus.replace('_', ' ')}`);
+      await logActivity(taskId, `Moved task "${taskTitle}" to ${newStatus}`);
+      toast.success(`Task moved to ${newStatus}`);
       // Refetch to ensure sync
       fetchTasks();
     } catch (error: any) {

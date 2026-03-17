@@ -15,7 +15,7 @@ export interface Database {
           created_at: string
           title: string
           description: string | null
-          status: 'todo' | 'in_progress' | 'done'
+          status: 'Todo' | 'In Progress' | 'Done'
           priority: 'low' | 'medium' | 'high'
           due_date: string | null
           assigned_to: string | null
@@ -27,7 +27,7 @@ export interface Database {
           created_at?: string
           title: string
           description?: string | null
-          status?: 'todo' | 'in_progress' | 'done'
+          status?: 'Todo' | 'In Progress' | 'Done'
           priority?: 'low' | 'medium' | 'high'
           due_date?: string | null
           assigned_to?: string | null
@@ -39,7 +39,7 @@ export interface Database {
           created_at?: string
           title?: string
           description?: string | null
-          status?: 'todo' | 'in_progress' | 'done'
+          status?: 'Todo' | 'In Progress' | 'Done'
           priority?: 'low' | 'medium' | 'high'
           due_date?: string | null
           assigned_to?: string | null

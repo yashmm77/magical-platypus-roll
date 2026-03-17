@@ -209,9 +209,9 @@ const TaskDetail = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "todo": return "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300";
-      case "in_progress": return "bg-blue-50 text-blue-700 border-blue-100 dark:bg-blue-900/20 dark:text-blue-400";
-      case "done": return "bg-emerald-50 text-emerald-700 border-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400";
+      case "Todo": return "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300";
+      case "In Progress": return "bg-blue-50 text-blue-700 border-blue-100 dark:bg-blue-900/20 dark:text-blue-400";
+      case "Done": return "bg-emerald-50 text-emerald-700 border-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400";
       default: return "bg-slate-100 text-slate-700";
     }
   };
@@ -287,7 +287,7 @@ const TaskDetail = () => {
             <CardHeader className="pb-4">
               <div className="flex items-center gap-3 mb-4">
                 <Badge variant="outline" className={getStatusColor(task.status)}>
-                  {task.status.replace('_', ' ')}
+                  {task.status}
                 </Badge>
                 <Badge variant="outline" className={getPriorityColor(task.priority)}>
                   {task.priority} Priority

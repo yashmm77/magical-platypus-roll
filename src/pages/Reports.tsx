@@ -59,7 +59,7 @@ const Reports = () => {
         return {
           name: dayStr,
           created: dayTasks.length,
-          completed: dayTasks.filter(t => t.status === 'done').length
+          completed: dayTasks.filter(t => t.status === 'Done').length
         };
       });
 
@@ -69,8 +69,8 @@ const Reports = () => {
         return {
           name: profile.full_name?.split(' ')[0] || "Unknown",
           tasks: userTasks.length,
-          completed: userTasks.filter(t => t.status === 'done').length,
-          pending: userTasks.filter(t => t.status !== 'done').length
+          completed: userTasks.filter(t => t.status === 'Done').length,
+          pending: userTasks.filter(t => t.status !== 'Done').length
         };
       }).filter(w => w.tasks > 0).sort((a, b) => b.tasks - a.tasks) || [];
 
