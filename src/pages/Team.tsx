@@ -1,255 +1,114 @@
-"use client";
+import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/hooks/useAuth';
+import { useUsers } from '@/hooks/useUsers';
+import { Users, Plus, Mail, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { toast } from 'sonner';
 
-import { useState } from "react";
-import { Users, Mail, Calendar, MoreVertical, UserPlus, Loader2, User, Lock, ShieldAlert } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { toast } from "sonner";
-import { useAuth } from "@/hooks/useAuth";
-import { useUsers } from "@/hooks/useUsers";
-import { supabase } from "@/lib/supabase";
-import { useQueryClient } from "@tanstack/react-query";
+const roleBadge: Record<string, string> = {
+  admin: 'bg-indigo-100 text-indigo-700',
+  member: 'bg-slate-100 text-slate-700',
+  viewer: 'bg-yellow-100 text-yellow-700',
+};
 
 const Team = () => {
-  const { user, activeOrgId, userOrgs } = useAuth();
-  const { data: members, isLoading } = useUsers();
+  const { activeOrgId, userOrgs } = useAuth();
+  const { data: users, isLoading } = useUsers();
   const queryClient = useQueryClient();
-  
-  // We'll keep the isAdmin logic for other potential uses, but we'll ensure the button shows up
-  const isAdmin = userOrgs.find(o => o.id === activeOrgId)?.role === 'admin' || true; 
-  
-  const [showInviteDialog, setShowInviteDialog] = useState(false);
-  const [inviting, setInviting] = useState(false);
-  const [inviteName, setInviteName] = useState("");
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [invitePassword, setInvitePassword] = useState("");
-  const [inviteRole, setInviteRole] = useState("member");
+  const isAdmin = userOrgs.find((o) => o.id === activeOrgId)?.role === 'admin';
 
-  const handleInvite = async (e: React.FormEvent) => {
+  const [open, setOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'member' });
+
+  const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!activeOrgId) {
-      toast.error("Please select an organization first");
-      return;
-    }
-    
-    setInviting(true);
+    setSubmitting(true);
     try {
-      // a. Try to create user
-      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-        email: inviteEmail,
-        password: invitePassword,
-        options: {
-          data: {
-            full_name: inviteName,
-          },
-        },
+      const { data: signUpData } = await supabase.auth.signUp({
+        email: form.email,
+        password: form.password,
+        options: { data: { full_name: form.name } },
       });
 
       let userId = signUpData?.user?.id;
 
-      // c. If signUpError or !userId: fetch from profiles
-      if (signUpError || !userId) {
+      if (!userId) {
         const { data: existing } = await supabase
-          .from("profiles")
-          .select("id")
-          .eq("email", inviteEmail)
+          .from('profiles')
+          .select('id')
+          .eq('email', form.email)
           .single();
-        
         userId = existing?.id;
-        if (userId) {
-          toast.info("User exists, linking to organization...");
-        }
       }
 
-      if (!userId) throw new Error("Could not resolve user ID");
+      if (!userId) throw new Error('Could not resolve user. Try a different email.');
 
-      // d. Insert into org_members
-      const { error: memberError } = await supabase
-        .from("org_members")
-        .insert({
-          org_id: activeOrgId,
-          user_id: userId,
-          role: inviteRole
-        });
+      const { error: linkError } = await supabase.rpc('add_member_to_org', {
+        p_user_id: userId,
+        p_org_id: activeOrgId,
+        p_role: form.role,
+      });
 
-      if (memberError) {
-        if (memberError.code === '23505') {
-          throw new Error("User is already a member of this organization");
-        }
-        throw memberError;
-      }
+      if (linkError) throw linkError;
 
-      // e. Success
-      toast.success("Member added!");
-      setShowInviteDialog(false);
-      setInviteName("");
-      setInviteEmail("");
-      setInvitePassword("");
-      setInviteRole("member");
-      queryClient.invalidateQueries({ queryKey: ["users", activeOrgId] });
-    } catch (error: any) {
-      toast.error(error.message || "Failed to add member");
+      toast.success('Member added successfully!');
+      setOpen(false);
+      setForm({ name: '', email: '', password: '', role: 'member' });
+      queryClient.invalidateQueries({ queryKey: ['users', activeOrgId] });
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to add member');
     } finally {
-      setInviting(false);
+      setSubmitting(false);
     }
   };
-
-  const getRoleBadge = (role: string) => {
-    switch (role) {
-      case 'admin':
-        return <Badge className="bg-indigo-100 text-indigo-700 border-indigo-200 hover:bg-indigo-100">Admin</Badge>;
-      case 'viewer':
-        return <Badge className="bg-yellow-100 text-yellow-700 border-yellow-200 hover:bg-yellow-100">Viewer</Badge>;
-      default:
-        return <Badge className="bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-100">Member</Badge>;
-    }
-  };
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
-      </div>
-    );
-  }
 
   return (
-    <div className="space-y-8 max-w-7xl mx-auto">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Team Members</h1>
-          <p className="text-slate-500 mt-1">Manage your team and their roles within this organization.</p>
-        </div>
-        <Button 
-          onClick={() => setShowInviteDialog(true)}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2 shadow-md"
-        >
-          <UserPlus className="w-4 h-4" />
-          Invite Member
-        </Button>
+        <h1 className="text-2xl font-bold text-slate-800">Team Members</h1>
+        {isAdmin && (
+          <Button
+            className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2"
+            onClick={() => setOpen(true)}
+          >
+            <Plus className="w-4 h-4" />
+            Add Member
+          </Button>
+        )}
       </div>
 
-      {!members || members.length === 0 ? (
-        <div className="flex flex-col items-center justify-center h-64 bg-white dark:bg-slate-900 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">
-          <Users className="w-12 h-12 text-slate-300 mb-4" />
-          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">No team members found</h3>
-          <p className="text-slate-500">Start by inviting someone to your organization.</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {members.map((member: any) => (
-            <Card key={member.id} className="border-none shadow-sm bg-white dark:bg-slate-900 hover:shadow-md transition-all group">
-              <CardContent className="pt-6">
-                <div className="flex items-start justify-between mb-6">
-                  <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 rounded-2xl bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold text-xl">
-                      {member.full_name?.[0]?.toUpperCase() || member.email?.[0]?.toUpperCase() || "U"}
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-bold text-slate-900 dark:text-white group-hover:text-indigo-600 transition-colors">
-                        {member.full_name || "Unnamed User"}
-                      </h3>
-                      <div className="mt-1">
-                        {getRoleBadge(member.role)}
-                      </div>
-                    </div>
-                  </div>
-                  {member.id !== user?.id && (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="text-slate-400">
-                          <MoreVertical className="w-4 h-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem>Edit Role</DropdownMenuItem>
-                        <DropdownMenuItem className="text-rose-600">Remove from Team</DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  )}
-                </div>
-
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3 text-sm text-slate-500 dark:text-slate-400">
-                    <Mail className="w-4 h-4 text-slate-400" />
-                    <span className="truncate">{member.email}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
-
-      <Dialog open={showInviteDialog} onOpenChange={setShowInviteDialog}>
+      <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-[425px]">
-          <form onSubmit={handleInvite}>
+          <form onSubmit={handleAddMember}>
             <DialogHeader>
               <DialogTitle>Add Team Member</DialogTitle>
-              <DialogDescription>
-                Add a new member to your organization. If they already have an account, they will be linked to your team.
-              </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="grid gap-2">
-                <Label htmlFor="fullName">Full Name</Label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <Input
-                    id="fullName"
-                    placeholder="Jane Doe"
-                    className="pl-10"
-                    value={inviteName}
-                    onChange={(e) => setInviteName(e.target.value)}
-                    required
-                  />
-                </div>
+                <Label>Full Name</Label>
+                <Input placeholder="Jane Doe" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="email">Email Address</Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="jane@example.com"
-                    className="pl-10"
-                    value={inviteEmail}
-                    onChange={(e) => setInviteEmail(e.target.value)}
-                    required
-                  />
-                </div>
+                <Label>Email</Label>
+                <Input type="email" placeholder="jane@example.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="password">Temporary Password</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="••••••••"
-                    className="pl-10"
-                    value={invitePassword}
-                    onChange={(e) => setInvitePassword(e.target.value)}
-                    required
-                  />
-                </div>
+                <Label>Password</Label>
+                <Input type="password" placeholder="Min 6 characters" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required minLength={6} />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="role">Role</Label>
-                <Select 
-                  value={inviteRole} 
-                  onValueChange={setInviteRole}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a role" />
-                  </SelectTrigger>
+                <Label>Role</Label>
+                <Select value={form.role} onValueChange={(val) => setForm({ ...form, role: val })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="member">Member</SelectItem>
                     <SelectItem value="viewer">Viewer</SelectItem>
@@ -258,14 +117,52 @@ const Team = () => {
               </div>
             </div>
             <DialogFooter>
-              <Button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700" disabled={inviting}>
-                {inviting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              <Button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700" disabled={submitting}>
+                {submitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                 Add Member
               </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
+
+      {isLoading ? (
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {users?.map((member: any) => (
+            <Card key={member.id} className="border-none shadow-sm bg-white hover:shadow-md transition-shadow">
+              <CardContent className="pt-6">
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-lg">
+                    {member.full_name?.substring(0, 2).toUpperCase() || member.email?.substring(0, 2).toUpperCase() || 'U'}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-lg font-semibold text-slate-900 truncate">{member.full_name || 'Unnamed User'}</h3>
+                    <div className="flex items-center gap-2 text-sm text-slate-500 mt-1">
+                      <Mail className="w-4 h-4" />
+                      <span className="truncate">{member.email}</span>
+                    </div>
+                    <div className="mt-3">
+                      <Badge className={`border-none text-xs font-medium ${roleBadge[member.role] || roleBadge.member}`}>
+                        {member.role}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+          {(!users || users.length === 0) && (
+            <div className="col-span-full text-center py-12 bg-white rounded-xl border border-dashed border-slate-300">
+              <Users className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+              <p className="text-slate-500">No team members found.</p>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

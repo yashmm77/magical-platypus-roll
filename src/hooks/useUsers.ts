@@ -1,27 +1,25 @@
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/lib/supabase";
-import { useAuth } from "./useAuth";
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/hooks/useAuth';
 
 export const useUsers = () => {
   const { activeOrgId } = useAuth();
 
   return useQuery({
-    queryKey: ["users", activeOrgId],
+    queryKey: ['users', activeOrgId],
+    enabled: !!activeOrgId,
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("org_members")
-        .select("role, profiles(id, email, full_name, avatar_url)")
-        .eq("org_id", activeOrgId);
+        .from('org_members')
+        .select('role, profiles(id, email, full_name, avatar_url)')
+        .eq('org_id', activeOrgId);
 
-      if (error) {
-        throw new Error(error.message);
-      }
+      if (error) throw new Error(error.message);
 
       return (data || []).map((m: any) => ({
         ...m.profiles,
-        role: m.role
+        role: m.role,
       }));
     },
-    enabled: !!activeOrgId,
   });
 };
