@@ -5,32 +5,34 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, CheckSquare, Clock, AlertCircle, ListTodo, BarChart3, History, Calendar as CalendarIcon } from "lucide-react";
+import { Loader2, CheckSquare, Clock, AlertCircle, ListTodo, BarChart3, RefreshCw, User, History } from "lucide-react";
+import { CreateTaskDialog } from "@/components/CreateTaskDialog";
 import { useAuth } from "@/hooks/useAuth";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
+import { useTasks } from "@/hooks/useTasks";
+import { useUsers } from "@/hooks/useUsers";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format } from "date-fns";
 
 const Index = () => {
-  const { user } = useAuth();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const { tasks, isLoading: tasksLoading } = useTasks();
+  const { data: users } = useUsers();
   const [summary, setSummary] = useState<any>(null);
-  const [recentTasks, setRecentTasks] = useState<any[]>([]);
-  const [dueTasks, setDueTasks] = useState<any[]>([]);
   const [activities, setActivities] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchData = async () => {
+    setLoading(true);
     try {
-      const [summaryRes, recentRes, dueRes, activityRes] = await Promise.all([
-        supabase.from("task_summary").select("*").maybeSingle(),
-        supabase.from("tasks").select(`*, assigned_user:profiles!tasks_assigned_to_fkey(full_name, email)`).order("created_at", { ascending: false }).limit(5),
-        supabase.from("tasks_due_today").select("*"),
+      const [summaryRes, activityRes] = await Promise.all([
+        supabase.from("task_summary").select("*").single(),
         supabase.from("activity_logs").select("*, profiles(full_name)").order("created_at", { ascending: false }).limit(5)
       ]);
       
       if (summaryRes.data) setSummary(summaryRes.data);
-      if (recentRes.data) setRecentTasks(recentRes.data);
-      if (dueRes.data) setDueTasks(dueRes.data);
       if (activityRes.data) setActivities(activityRes.data);
     } catch (err) {
       console.error("Error fetching dashboard data:", err);
@@ -41,28 +43,35 @@ const Index = () => {
 
   useEffect(() => {
     fetchData();
+  }, [tasks]);
 
-    const channel = supabase
-      .channel('dashboard-updates')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, fetchData)
-      .subscribe();
+  const myTasks = useMemo(() => {
+    if (!user) return [];
+    return tasks.filter(t => t.assigned_to === user.id);
+  }, [tasks, user]);
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
+  const priorityData = useMemo(() => {
+    const counts = { high: 0, medium: 0, low: 0 };
+    tasks.forEach(t => {
+      if (t.priority in counts) counts[t.priority as keyof typeof counts]++;
+    });
+    return [
+      { name: 'High', value: counts.high, color: '#ef4444' },
+      { name: 'Medium', value: counts.medium, color: '#f59e0b' },
+      { name: 'Low', value: counts.low, color: '#10b981' },
+    ];
+  }, [tasks]);
 
-  const chartData = useMemo(() => {
+  const statusChartData = useMemo(() => {
     if (!summary) return [];
-    const data = [
-      { name: 'Completed', value: summary.completed_tasks || 0, color: '#10b981' },
-      { name: 'Pending', value: summary.pending_tasks || 0, color: '#f59e0b' },
-      { name: 'Overdue', value: summary.overdue_tasks || 0, color: '#ef4444' },
+    return [
+      { name: 'Completed', value: summary.completed_tasks, color: '#10b981' },
+      { name: 'Pending', value: summary.pending_tasks, color: '#f59e0b' },
+      { name: 'Overdue', value: summary.overdue_tasks, color: '#ef4444' },
     ].filter(item => item.value > 0);
-    return data;
   }, [summary]);
 
-  if (loading) {
+  if (loading || tasksLoading) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
         <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
@@ -77,6 +86,12 @@ const Index = () => {
           <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Dashboard</h1>
           <p className="text-slate-500 mt-1">Welcome back, {user?.email?.split('@')[0]}</p>
         </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="icon" onClick={fetchData} className="text-slate-500">
+            <RefreshCw className="w-4 h-4" />
+          </Button>
+          <CreateTaskDialog onTaskCreated={fetchData} />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -86,7 +101,7 @@ const Index = () => {
             <ListTodo className="w-4 h-4 text-indigo-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-slate-900 dark:text-white">{summary?.total_tasks || 0}</div>
+            <div className="text-2xl font-bold text-slate-900 dark:text-white">{tasks.length}</div>
           </CardContent>
         </Card>
         <Card className="border-none shadow-sm bg-white dark:bg-slate-900">
@@ -120,27 +135,27 @@ const Index = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-8">
-          <Card className="border-none shadow-sm bg-white dark:bg-slate-900 p-6">
-            <CardHeader className="px-0 pt-0">
-              <CardTitle className="text-lg font-semibold flex items-center gap-2">
-                <BarChart3 className="w-5 h-5 text-indigo-500" />
-                Task Distribution
-              </CardTitle>
-            </CardHeader>
-            <div className="h-[300px] w-full flex items-center justify-center">
-              {chartData.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card className="border-none shadow-sm bg-white dark:bg-slate-900 p-6">
+              <CardHeader className="px-0 pt-0">
+                <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5 text-indigo-500" />
+                  Status Distribution
+                </CardTitle>
+              </CardHeader>
+              <div className="h-[250px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
-                      data={chartData}
+                      data={statusChartData}
                       cx="50%"
                       cy="50%"
                       innerRadius={60}
-                      outerRadius={100}
+                      outerRadius={80}
                       paddingAngle={5}
                       dataKey="value"
                     >
-                      {chartData.map((entry, index) => (
+                      {statusChartData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
                     </Pie>
@@ -148,120 +163,149 @@ const Index = () => {
                     <Legend />
                   </PieChart>
                 </ResponsiveContainer>
-              ) : (
-                <div className="text-center space-y-2">
-                  <div className="w-12 h-12 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto">
-                    <BarChart3 className="w-6 h-6 text-slate-400" />
-                  </div>
-                  <p className="text-sm text-slate-500">No task data available yet.</p>
-                </div>
-              )}
-            </div>
-          </Card>
+              </div>
+            </Card>
+
+            <Card className="border-none shadow-sm bg-white dark:bg-slate-900 p-6">
+              <CardHeader className="px-0 pt-0">
+                <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5 text-indigo-500" />
+                  Priority Breakdown
+                </CardTitle>
+              </CardHeader>
+              <div className="h-[250px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={priorityData}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} />
+                    <Tooltip cursor={{ fill: '#f8fafc' }} />
+                    <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                      {priorityData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </Card>
+          </div>
 
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2">
-                <ListTodo className="w-5 h-5 text-indigo-500" />
-                Recent Tasks
-              </h2>
-              <Badge variant="secondary" className="cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-800" onClick={() => navigate('/tasks')}>View All</Badge>
-            </div>
-            <div className="space-y-3">
-              {recentTasks.map((task) => (
-                <div 
-                  key={task.id} 
-                  onClick={() => navigate(`/tasks/${task.id}`)}
-                  className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4 flex items-center justify-between border border-slate-100 dark:border-slate-800 hover:border-indigo-200 dark:hover:border-indigo-900 transition-all cursor-pointer group"
-                >
-                  <div>
-                    <p className="font-semibold text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 transition-colors">{task.title}</p>
-                    <p className="text-sm text-slate-500 mt-1">
-                      {task.assigned_user?.full_name || "Unassigned"} • Due {task.due_date ? format(new Date(task.due_date), "MMM d") : "N/A"}
-                    </p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Badge variant="outline" className={task.priority === 'high' ? 'bg-rose-50 text-rose-700 dark:bg-rose-900/20 dark:text-rose-400' : 'bg-slate-50 dark:bg-slate-800'}>
-                      {task.priority}
-                    </Badge>
-                    <Badge variant="secondary" className="bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-400">
-                      {task.status.replace('_', ' ')}
-                    </Badge>
-                  </div>
+            <Tabs defaultValue="recent" className="w-full">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold text-slate-800 dark:text-white flex items-center gap-2">
+                  <ListTodo className="w-5 h-5 text-indigo-500" />
+                  Tasks
+                </h2>
+                <TabsList className="bg-slate-100 dark:bg-slate-800">
+                  <TabsTrigger value="recent">Recent</TabsTrigger>
+                  <TabsTrigger value="mine">My Tasks</TabsTrigger>
+                </TabsList>
+              </div>
+              
+              <TabsContent value="recent" className="mt-0">
+                <div className="space-y-3 text-left max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                  {tasks.length === 0 ? (
+                    <p className="text-center text-slate-400 py-8">No tasks yet. Create one above!</p>
+                  ) : (
+                    tasks.map((task) => (
+                      <TaskCard key={task.id} task={task} onClick={() => navigate(`/tasks/${task.id}`)} />
+                    ))
+                  )}
                 </div>
-              ))}
-              {recentTasks.length === 0 && (
-                <div className="text-center py-12 bg-white dark:bg-slate-900 rounded-xl border border-dashed border-slate-200 dark:border-slate-800">
-                  <p className="text-sm text-slate-500">No tasks created yet.</p>
+              </TabsContent>
+              
+              <TabsContent value="mine" className="mt-0">
+                <div className="space-y-3 text-left max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                  {myTasks.length === 0 ? (
+                    <div className="text-center py-12 bg-white dark:bg-slate-900 rounded-xl border border-dashed border-slate-200 dark:border-slate-800">
+                      <User className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                      <p className="text-slate-500">No tasks assigned to you yet.</p>
+                    </div>
+                  ) : (
+                    myTasks.map((task) => (
+                      <TaskCard key={task.id} task={task} onClick={() => navigate(`/tasks/${task.id}`)} />
+                    ))
+                  )}
                 </div>
-              )}
-            </div>
+              </TabsContent>
+            </Tabs>
           </div>
         </div>
 
-        <div className="space-y-8">
-          <div className="space-y-4">
-            <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2">
-              <CalendarIcon className="w-5 h-5 text-indigo-500" />
-              Due Today
-            </h2>
-            <div className="space-y-3">
-              {dueTasks.map((task) => (
-                <Card key={task.id} className="border-none shadow-sm bg-white dark:bg-slate-900 hover:shadow-md transition-shadow cursor-pointer" onClick={() => navigate(`/tasks/${task.id}`)}>
-                  <CardContent className="p-4">
-                    <h3 className="font-semibold text-slate-900 dark:text-slate-100 text-sm">{task.title}</h3>
-                    <div className="flex items-center justify-between mt-2">
-                      <Badge variant="outline" className="text-[10px] uppercase tracking-wider">
-                        {task.priority}
-                      </Badge>
-                      <span className="text-[10px] text-slate-400">
-                        {task.assigned_to_name || "Unassigned"}
-                      </span>
+        <div className="space-y-4">
+          <h2 className="text-xl font-semibold text-slate-800 dark:text-white flex items-center gap-2">
+            <History className="w-5 h-5 text-indigo-500" />
+            Recent Activity
+          </h2>
+          <Card className="border-none shadow-sm bg-white dark:bg-slate-900">
+            <CardContent className="p-4">
+              <div className="space-y-6">
+                {activities.length === 0 ? (
+                  <p className="text-slate-500 text-sm italic">No recent activity.</p>
+                ) : (
+                  activities.map((activity, idx) => (
+                    <div key={activity.id} className="relative pl-6 pb-6 last:pb-0">
+                      {idx !== activities.length - 1 && (
+                        <div className="absolute left-[7px] top-[20px] bottom-0 w-[2px] bg-slate-100 dark:bg-slate-800" />
+                      )}
+                      <div className="absolute left-0 top-[6px] w-4 h-4 rounded-full bg-indigo-100 dark:bg-indigo-900/30 border-2 border-white dark:border-slate-900 flex items-center justify-center">
+                        <div className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+                      </div>
+                      <div>
+                        <p className="text-sm text-slate-800 dark:text-slate-200 font-medium leading-tight">{activity.action}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-[10px] text-slate-400 font-medium uppercase">
+                            {activity.profiles?.full_name || "System"}
+                          </span>
+                          <span className="text-[10px] text-slate-300">•</span>
+                          <span className="text-[10px] text-slate-400">
+                            {format(new Date(activity.created_at), "MMM d, HH:mm")}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
-              {dueTasks.length === 0 && (
-                <div className="text-center py-8 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-dashed border-slate-200 dark:border-slate-800">
-                  <p className="text-xs text-slate-500">No tasks due today.</p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2">
-              <History className="w-5 h-5 text-indigo-500" />
-              Recent Activity
-            </h2>
-            <div className="space-y-4">
-              {activities.map((activity, idx) => (
-                <div key={activity.id} className="flex gap-3 relative">
-                  {idx !== activities.length - 1 && (
-                    <div className="absolute left-[11px] top-6 bottom-0 w-[2px] bg-slate-100 dark:bg-slate-800" />
-                  )}
-                  <div className="w-6 h-6 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center flex-shrink-0 z-10">
-                    <div className="w-2 h-2 rounded-full bg-indigo-500" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-slate-800 dark:text-slate-200 leading-tight">
-                      <span className="font-semibold">{activity.profiles?.full_name || "System"}</span> {activity.action}
-                    </p>
-                    <p className="text-[10px] text-slate-400 mt-1">
-                      {format(new Date(activity.created_at), "MMM d, HH:mm")}
-                    </p>
-                  </div>
-                </div>
-              ))}
-              {activities.length === 0 && (
-                <p className="text-xs text-slate-500 text-center py-4">No recent activity.</p>
-              )}
-            </div>
-          </div>
+                  ))
+                )}
+              </div>
+              <Button 
+                variant="ghost" 
+                className="w-full mt-4 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-900/10 text-xs"
+                onClick={() => navigate("/tasks")}
+              >
+                View All Tasks
+              </Button>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>
   );
 };
+
+const TaskCard = ({ task, onClick }: { task: any, onClick: () => void }) => (
+  <div 
+    onClick={onClick}
+    className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4 flex items-center justify-between border border-slate-100 dark:border-slate-800 hover:border-indigo-200 dark:hover:border-indigo-900 hover:shadow-md transition-all cursor-pointer group"
+  >
+    <div>
+      <p className="font-semibold text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 transition-colors">{task.title}</p>
+      {task.description && <p className="text-sm text-slate-500 mt-1 line-clamp-1">{task.description}</p>}
+    </div>
+    <div className="flex gap-2">
+      <Badge variant="outline" className={`text-[10px] uppercase tracking-wider ${
+        task.priority === 'high' ? 'bg-rose-50 text-rose-700 border-rose-100 dark:bg-rose-900/20 dark:text-rose-400 dark:border-rose-900/30' :
+        task.priority === 'medium' ? 'bg-amber-50 text-amber-700 border-amber-100 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-900/30' :
+        'bg-emerald-50 text-emerald-700 border-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-900/30'
+      }`}>
+        {task.priority}
+      </Badge>
+      <Badge variant="secondary" className="text-[10px] uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-none">
+        {task.status.replace('_', ' ')}
+      </Badge>
+    </div>
+  </div>
+);
 
 export default Index;

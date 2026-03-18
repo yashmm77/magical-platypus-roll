@@ -16,25 +16,21 @@ import { useUsers } from "@/hooks/useUsers";
 import { toast } from "sonner";
 import { Task } from "@/types";
 import { logActivity } from "@/utils/activity";
-import { cn } from "@/lib/utils";
-import { useAuth } from "@/hooks/useAuth";
 
 interface TaskModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   task?: Task | null;
-  defaultStatus?: "Todo" | "In Progress" | "Done";
   onSuccess?: () => void;
 }
 
-export const TaskModal = ({ open, onOpenChange, task, defaultStatus, onSuccess }: TaskModalProps) => {
+export const TaskModal = ({ open, onOpenChange, task, onSuccess }: TaskModalProps) => {
   const { data: users } = useUsers();
-  const { activeOrgId } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     title: "",
     description: "",
-    status: "Todo" as "Todo" | "In Progress" | "Done",
+    status: "todo" as "todo" | "in_progress" | "completed",
     priority: "medium" as "low" | "medium" | "high",
     assigned_to: "" as string | null,
     due_date: null as string | null,
@@ -48,7 +44,7 @@ export const TaskModal = ({ open, onOpenChange, task, defaultStatus, onSuccess }
         setFormData({
           title: task.title || "",
           description: task.description || "",
-          status: task.status || "Todo",
+          status: task.status || "todo",
           priority: task.priority || "medium",
           assigned_to: task.assigned_to || null,
           due_date: task.due_date || null,
@@ -57,42 +53,34 @@ export const TaskModal = ({ open, onOpenChange, task, defaultStatus, onSuccess }
         setFormData({
           title: "",
           description: "",
-          status: defaultStatus || "Todo",
+          status: "todo",
           priority: "medium",
           assigned_to: null,
           due_date: null,
         });
       }
     }
-  }, [open, task, defaultStatus]);
+  }, [open, task]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.title.trim()) return;
-    if (!activeOrgId) {
-      toast.error("No active organization selected");
-      return;
-    }
-    
     setIsSubmitting(true);
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("You must be logged in");
 
-      const payload = {
-        title: formData.title.trim(),
-        description: formData.description.trim() || null,
-        status: formData.status,
-        priority: formData.priority,
-        assigned_to: formData.assigned_to || null,
-        due_date: formData.due_date,
-      };
-
       if (isEditMode && task) {
         const { error } = await supabase
           .from("tasks")
-          .update(payload)
+          .update({
+            title: formData.title,
+            description: formData.description || null,
+            status: formData.status,
+            priority: formData.priority,
+            assigned_to: formData.assigned_to || null,
+            due_date: formData.due_date,
+          })
           .eq("id", task.id);
 
         if (error) throw error;
@@ -102,9 +90,13 @@ export const TaskModal = ({ open, onOpenChange, task, defaultStatus, onSuccess }
         const { data, error } = await supabase
           .from("tasks")
           .insert({
-            ...payload,
+            title: formData.title,
+            description: formData.description || null,
+            status: formData.status,
+            priority: formData.priority,
+            assigned_to: formData.assigned_to || null,
+            due_date: formData.due_date,
             created_by: user.id,
-            org_id: activeOrgId
           })
           .select()
           .single();
@@ -125,7 +117,7 @@ export const TaskModal = ({ open, onOpenChange, task, defaultStatus, onSuccess }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px] w-[95vw] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[500px]">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>{isEditMode ? "Edit Task" : "Create New Task"}</DialogTitle>
@@ -153,7 +145,7 @@ export const TaskModal = ({ open, onOpenChange, task, defaultStatus, onSuccess }
               />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="status">Status</Label>
                 <Select
@@ -164,9 +156,9 @@ export const TaskModal = ({ open, onOpenChange, task, defaultStatus, onSuccess }
                     <SelectValue placeholder="Select status" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Todo">Todo</SelectItem>
-                    <SelectItem value="In Progress">In Progress</SelectItem>
-                    <SelectItem value="Done">Completed</SelectItem>
+                    <SelectItem value="todo">Todo</SelectItem>
+                    <SelectItem value="in_progress">In Progress</SelectItem>
+                    <SelectItem value="completed">Done</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -188,7 +180,7 @@ export const TaskModal = ({ open, onOpenChange, task, defaultStatus, onSuccess }
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="assignee">Assign To</Label>
                 <Select
@@ -216,10 +208,7 @@ export const TaskModal = ({ open, onOpenChange, task, defaultStatus, onSuccess }
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !formData.due_date && "text-muted-foreground"
-                      )}
+                      className="w-full justify-start text-left font-normal"
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
                       {formData.due_date ? (
@@ -249,7 +238,7 @@ export const TaskModal = ({ open, onOpenChange, task, defaultStatus, onSuccess }
           <DialogFooter>
             <Button
               type="submit"
-              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white"
+              className="w-full bg-indigo-600 hover:bg-indigo-700"
               disabled={isSubmitting || !formData.title.trim()}
             >
               {isSubmitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}

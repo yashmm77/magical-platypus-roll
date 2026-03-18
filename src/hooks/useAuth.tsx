@@ -6,8 +6,6 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
-  activeOrgId: string | null;
-  setActiveOrgId: (id: string | null) => void;
   signOut: () => Promise<void>;
 }
 
@@ -17,16 +15,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeOrgId, setActiveOrgIdState] = useState<string | null>(localStorage.getItem('activeOrgId'));
-
-  const setActiveOrgId = (id: string | null) => {
-    setActiveOrgIdState(id);
-    if (id) {
-      localStorage.setItem('activeOrgId', id);
-    } else {
-      localStorage.removeItem('activeOrgId');
-    }
-  };
 
   useEffect(() => {
     // Check active sessions and sets the user
@@ -40,9 +28,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
-      if (!session) {
-        setActiveOrgId(null);
-      }
       setLoading(false);
     });
 
@@ -51,11 +36,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const signOut = async () => {
     await supabase.auth.signOut();
-    setActiveOrgId(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, activeOrgId, setActiveOrgId, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, signOut }}>
       {children}
     </AuthContext.Provider>
   );

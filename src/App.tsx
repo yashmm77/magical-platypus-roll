@@ -8,11 +8,9 @@ import Calendar from "./pages/Calendar";
 import TaskDetail from "./pages/TaskDetail";
 import Team from "./pages/Team";
 import Profile from "./pages/Profile";
-import Reports from "./pages/Reports";
 import Login from "./pages/Login";
-import Signup from "./pages/Signup";
+import Register from "./pages/Register";
 import { useAuth } from "./hooks/useAuth";
-import { ProtectedRoute } from "./components/ProtectedRoute";
 
 function App() {
   const { user, loading } = useAuth();
@@ -26,74 +24,36 @@ function App() {
       <Toaster position="top-right" richColors />
       <Routes>
         <Route path="/login" element={!user ? <Login /> : <Navigate to="/" />} />
-        <Route path="/signup" element={!user ? <Signup /> : <Navigate to="/" />} />
-        <Route path="/register" element={<Navigate to="/signup" replace />} />
+        <Route path="/register" element={!user ? <Register /> : <Navigate to="/" />} />
         
         <Route
           path="/"
-          element={
-            <ProtectedRoute>
-              <Layout><Index /></Layout>
-            </ProtectedRoute>
-          }
+          element={user ? <Layout><Index /></Layout> : <Navigate to="/login" />}
         />
         <Route
           path="/kanban"
-          element={
-            <ProtectedRoute>
-              <Layout><Kanban /></Layout>
-            </ProtectedRoute>
-          }
+          element={user ? <Layout><Kanban /></Layout> : <Navigate to="/login" />}
         />
         <Route
           path="/tasks"
-          element={
-            <ProtectedRoute>
-              <Layout><Tasks /></Layout>
-            </ProtectedRoute>
-          }
+          element={user ? <Layout><Tasks /></Layout> : <Navigate to="/login" />}
         />
         <Route
           path="/calendar"
-          element={
-            <ProtectedRoute>
-              <Layout><Calendar /></Layout>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/reports"
-          element={
-            <ProtectedRoute>
-              <Layout><Reports /></Layout>
-            </ProtectedRoute>
-          }
+          element={user ? <Layout><Calendar /></Layout> : <Navigate to="/login" />}
         />
         <Route
           path="/tasks/:id"
-          element={
-            <ProtectedRoute>
-              <Layout><TaskDetail /></Layout>
-            </ProtectedRoute>
-          }
+          element={user ? <Layout><TaskDetail /></Layout> : <Navigate to="/login" />}
         />
         <Route
           path="/team"
-          element={
-            <ProtectedRoute>
-              <Layout><Team /></Layout>
-            </ProtectedRoute>
-          }
+          element={user ? <Layout><Team /></Layout> : <Navigate to="/login" />}
         />
         <Route
           path="/profile"
-          element={
-            <ProtectedRoute>
-              <Layout><Profile /></Layout>
-            </ProtectedRoute>
-          }
+          element={user ? <Layout><Profile /></Layout> : <Navigate to="/login" />}
         />
-        <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </Router>
   );
