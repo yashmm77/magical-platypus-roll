@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { Task } from "@/types";
 import { logActivity } from "@/utils/activity";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
 
 interface TaskModalProps {
   open: boolean;
@@ -28,6 +29,7 @@ interface TaskModalProps {
 
 export const TaskModal = ({ open, onOpenChange, task, defaultStatus, onSuccess }: TaskModalProps) => {
   const { data: users } = useUsers();
+  const { activeOrgId } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     title: "",
@@ -67,6 +69,10 @@ export const TaskModal = ({ open, onOpenChange, task, defaultStatus, onSuccess }
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.title.trim()) return;
+    if (!activeOrgId) {
+      toast.error("No active organization selected");
+      return;
+    }
     
     setIsSubmitting(true);
 
@@ -98,6 +104,7 @@ export const TaskModal = ({ open, onOpenChange, task, defaultStatus, onSuccess }
           .insert({
             ...payload,
             created_by: user.id,
+            org_id: activeOrgId
           })
           .select()
           .single();
