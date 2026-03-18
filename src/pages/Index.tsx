@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,7 +11,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recha
 import { format } from "date-fns";
 
 const Index = () => {
-  const { user, activeOrgId } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [summary, setSummary] = useState<any>(null);
   const [recentTasks, setRecentTasks] = useState<any[]>([]);
@@ -19,16 +19,14 @@ const Index = () => {
   const [activities, setActivities] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchData = useCallback(async () => {
-    if (!activeOrgId) return;
-    
+  const fetchData = async () => {
     setLoading(true);
     try {
       const [summaryRes, recentRes, dueRes, activityRes] = await Promise.all([
-        supabase.from("task_summary").select("*").eq("org_id", activeOrgId).maybeSingle(),
-        supabase.from("tasks").select(`*, assigned_user:profiles!tasks_assigned_to_fkey(full_name, email)`).eq("org_id", activeOrgId).order("created_at", { ascending: false }).limit(5),
-        supabase.from("tasks_due_today").select("*").eq("org_id", activeOrgId),
-        supabase.from("activity_logs").select("*, profiles(full_name), tasks!inner(org_id)").eq("tasks.org_id", activeOrgId).order("created_at", { ascending: false }).limit(5)
+        supabase.from("task_summary").select("*").single(),
+        supabase.from("tasks").select(`*, assigned_user:profiles!tasks_assigned_to_fkey(full_name, email)`).order("created_at", { ascending: false }).limit(5),
+        supabase.from("tasks_due_today").select("*"),
+        supabase.from("activity_logs").select("*, profiles(full_name)").order("created_at", { ascending: false }).limit(5)
       ]);
       
       if (summaryRes.data) setSummary(summaryRes.data);
@@ -40,28 +38,21 @@ const Index = () => {
     } finally {
       setLoading(false);
     }
-  }, [activeOrgId]);
+  };
 
   useEffect(() => {
     fetchData();
 
-    if (!activeOrgId) return;
-
     // Real-time subscription to refresh dashboard data
     const channel = supabase
       .channel('dashboard-updates')
-      .on('postgres_changes', { 
-        event: '*', 
-        schema: 'public', 
-        table: 'tasks',
-        filter: `org_id=eq.${activeOrgId}`
-      }, fetchData)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, fetchData)
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [activeOrgId, fetchData]);
+  }, []);
 
   const chartData = useMemo(() => {
     if (!summary) return [];
@@ -72,15 +63,7 @@ const Index = () => {
     ].filter(item => item.value > 0);
   }, [summary]);
 
-  if (!activeOrgId) {
-    return (
-      <div className="min-h-[60vh] flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
-      </div>
-    );
-  }
-
-  if (loading && recentTasks.length === 0) {
+  if (loading) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
         <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
@@ -194,7 +177,7 @@ const Index = () => {
                       {task.priority}
                     </Badge>
                     <Badge variant="secondary" className="bg-indigo-50 text-indigo-700">
-                      {task.status}
+                      {task.status.replace('_', ' ')}
                     </Badge>
                   </div>
                 </div>
