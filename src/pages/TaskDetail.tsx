@@ -43,6 +43,7 @@ const TaskDetail = () => {
     if (!id) return;
     
     try {
+      // Fetch task first without complex joins to ensure it exists
       const { data: taskData, error: taskError } = await supabase
         .from("tasks")
         .select("*")
@@ -56,6 +57,7 @@ const TaskDetail = () => {
         return;
       }
 
+      // Fetch profile names separately for better reliability
       const profileIds = [taskData.assigned_to, taskData.created_by].filter(Boolean);
       let profileMap: Record<string, string> = {};
 
@@ -85,32 +87,16 @@ const TaskDetail = () => {
   const fetchComments = useCallback(async () => {
     if (!id) return;
     try {
-      const { data: commentsData, error: commentsError } = await supabase
+      const { data, error } = await supabase
         .from("comments")
-        .select("*")
+        .select(`
+          *,
+          profiles(full_name)
+        `)
         .eq("task_id", id)
         .order("created_at", { ascending: true });
 
-      if (commentsError) throw commentsError;
-
-      if (commentsData && commentsData.length > 0) {
-        const userIds = Array.from(new Set(commentsData.map(c => c.user_id)));
-        const { data: profiles } = await supabase
-          .from("profiles")
-          .select("id, full_name")
-          .in("id", userIds);
-
-        const profileMap = (profiles || []).reduce((acc, p) => ({ ...acc, [p.id]: p.full_name }), {});
-        
-        const commentsWithProfiles = commentsData.map(c => ({
-          ...c,
-          profiles: { full_name: profileMap[c.user_id] || "Unknown User" }
-        }));
-
-        setComments(commentsWithProfiles as any);
-      } else {
-        setComments([]);
-      }
+      if (!error && data) setComments(data as any);
     } catch (err) {
       console.error("Error fetching comments:", err);
     }
@@ -241,7 +227,7 @@ const TaskDetail = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-8">
-          <Card className="border-none shadow-sm bg-white dark:bg-slate-900">
+          <Card className="border-none shadow-sm bg-white">
             <CardHeader className="pb-4">
               <div className="flex items-center gap-3 mb-4">
                 <Badge variant="outline" className={getStatusColor(task.status)}>
@@ -251,19 +237,19 @@ const TaskDetail = () => {
                   {task.priority} Priority
                 </Badge>
               </div>
-              <CardTitle className="text-3xl font-bold text-slate-900 dark:text-white">{task.title}</CardTitle>
-              <CardDescription className="text-base mt-4 text-slate-600 dark:text-slate-400 whitespace-pre-wrap">
+              <CardTitle className="text-3xl font-bold text-slate-900">{task.title}</CardTitle>
+              <CardDescription className="text-base mt-4 text-slate-600 whitespace-pre-wrap">
                 {task.description || "No description provided."}
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-4 border-t border-slate-100 dark:border-slate-800">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-4 border-t border-slate-100">
                 <div className="space-y-4">
                   <div className="flex items-center gap-3 text-sm">
                     <Calendar className="w-4 h-4 text-slate-400" />
                     <div>
                       <p className="text-slate-500 font-medium">Due Date</p>
-                      <p className="text-slate-900 dark:text-slate-200">
+                      <p className="text-slate-900">
                         {task.due_date ? format(new Date(task.due_date), "PPP") : "No due date"}
                       </p>
                     </div>
@@ -272,7 +258,7 @@ const TaskDetail = () => {
                     <User className="w-4 h-4 text-slate-400" />
                     <div>
                       <p className="text-slate-500 font-medium">Assigned To</p>
-                      <p className="text-slate-900 dark:text-slate-200">{task.assigned_to_name}</p>
+                      <p className="text-slate-900">{task.assigned_to_name}</p>
                     </div>
                   </div>
                 </div>
@@ -281,14 +267,14 @@ const TaskDetail = () => {
                     <Clock className="w-4 h-4 text-slate-400" />
                     <div>
                       <p className="text-slate-500 font-medium">Created At</p>
-                      <p className="text-slate-900 dark:text-slate-200">{format(new Date(task.created_at), "PPP p")}</p>
+                      <p className="text-slate-900">{format(new Date(task.created_at), "PPP p")}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3 text-sm">
                     <User className="w-4 h-4 text-slate-400" />
                     <div>
                       <p className="text-slate-500 font-medium">Created By</p>
-                      <p className="text-slate-900 dark:text-slate-200">{task.created_by_name}</p>
+                      <p className="text-slate-900">{task.created_by_name}</p>
                     </div>
                   </div>
                 </div>
@@ -297,7 +283,7 @@ const TaskDetail = () => {
           </Card>
 
           <div className="space-y-4">
-            <h3 className="text-xl font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+            <h3 className="text-xl font-semibold text-slate-900 flex items-center gap-2">
               <MessageSquare className="w-5 h-5 text-indigo-500" />
               Comments
             </h3>
@@ -307,16 +293,16 @@ const TaskDetail = () => {
                 <p className="text-slate-500 text-sm italic py-4">No comments yet.</p>
               ) : (
                 comments.map((comment) => (
-                  <div key={comment.id} className="bg-white dark:bg-slate-900 p-4 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800">
+                  <div key={comment.id} className="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="font-semibold text-slate-900 dark:text-slate-200 text-sm">
+                      <span className="font-semibold text-slate-900 text-sm">
                         {comment.profiles?.full_name || "Unknown User"}
                       </span>
                       <span className="text-xs text-slate-400">
                         {format(new Date(comment.created_at), "MMM d, p")}
                       </span>
                     </div>
-                    <p className="text-slate-700 dark:text-slate-300 text-sm whitespace-pre-wrap">{comment.content}</p>
+                    <p className="text-slate-700 text-sm whitespace-pre-wrap">{comment.content}</p>
                   </div>
                 ))
               )}
@@ -327,7 +313,7 @@ const TaskDetail = () => {
                 placeholder="Write a comment..." 
                 value={commentText}
                 onChange={(e) => setCommentText(e.target.value)}
-                className="min-h-[100px] bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 focus:ring-indigo-500"
+                className="min-h-[100px] bg-white border-slate-200 focus:ring-indigo-500"
               />
               <div className="flex justify-end">
                 <Button 
@@ -344,11 +330,11 @@ const TaskDetail = () => {
         </div>
 
         <div className="space-y-4">
-          <h3 className="text-xl font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+          <h3 className="text-xl font-semibold text-slate-900 flex items-center gap-2">
             <History className="w-5 h-5 text-indigo-500" />
             Activity Log
           </h3>
-          <Card className="border-none shadow-sm bg-white dark:bg-slate-900">
+          <Card className="border-none shadow-sm bg-white">
             <CardContent className="p-4">
               <div className="space-y-6">
                 {logs.length === 0 ? (
@@ -357,13 +343,13 @@ const TaskDetail = () => {
                   logs.map((log, idx) => (
                     <div key={log.id} className="relative pl-6 pb-6 last:pb-0">
                       {idx !== logs.length - 1 && (
-                        <div className="absolute left-[7px] top-[20px] bottom-0 w-[2px] bg-slate-100 dark:bg-slate-800" />
+                        <div className="absolute left-[7px] top-[20px] bottom-0 w-[2px] bg-slate-100" />
                       )}
-                      <div className="absolute left-0 top-[6px] w-4 h-4 rounded-full bg-indigo-100 dark:bg-indigo-900/30 border-2 border-white dark:border-slate-900 flex items-center justify-center">
+                      <div className="absolute left-0 top-[6px] w-4 h-4 rounded-full bg-indigo-100 border-2 border-white flex items-center justify-center">
                         <div className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
                       </div>
                       <div>
-                        <p className="text-sm text-slate-800 dark:text-slate-200 font-medium">{log.action}</p>
+                        <p className="text-sm text-slate-800 font-medium">{log.action}</p>
                         <p className="text-xs text-slate-400 mt-1">
                           {format(new Date(log.created_at), "MMM d, yyyy HH:mm")}
                         </p>

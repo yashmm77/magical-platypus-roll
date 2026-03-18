@@ -16,31 +16,14 @@ export const Notifications = () => {
   const fetchNotifications = async () => {
     setLoading(true);
     try {
-      const { data: logsData } = await supabase
+      const { data } = await supabase
         .from("activity_logs")
-        .select("*")
+        .select("*, profiles(full_name)")
         .order("created_at", { ascending: false })
         .limit(10);
       
-      if (logsData && logsData.length > 0) {
-        const userIds = Array.from(new Set(logsData.map(l => l.user_id).filter(Boolean)));
-        const { data: profiles } = await supabase
-          .from("profiles")
-          .select("id, full_name")
-          .in("id", userIds);
-
-        const profileMap = (profiles || []).reduce((acc, p) => ({ ...acc, [p.id]: p.full_name }), {});
-        
-        const logsWithProfiles = logsData.map(l => ({
-          ...l,
-          profiles: { full_name: profileMap[l.user_id] || "System" }
-        }));
-
-        setNotifications(logsWithProfiles);
-      } else {
-        setNotifications([]);
-      }
-      setUnreadCount(0);
+      setNotifications(data || []);
+      setUnreadCount(0); // For now, we just clear the count when opened
     } catch (err) {
       console.error("Error fetching notifications:", err);
     } finally {
@@ -49,11 +32,13 @@ export const Notifications = () => {
   };
 
   useEffect(() => {
+    // Initial fetch
     fetchNotifications();
 
+    // Real-time subscription for new activities
     const channel = supabase
       .channel('activity-notifications')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'activity_logs' }, () => {
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'activity_logs' }, (payload) => {
         setUnreadCount(prev => prev + 1);
       })
       .subscribe();
