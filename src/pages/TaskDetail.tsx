@@ -26,6 +26,7 @@ import { toast } from "sonner";
 import { TaskModal } from "@/components/TaskModal";
 import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
 import { logActivity } from "@/utils/activity";
+import { cn } from "@/lib/utils";
 
 const TaskDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -47,27 +48,33 @@ const TaskDetail = () => {
     if (!id) return;
     
     try {
+      // Using the column name in the join syntax to resolve ambiguity between multiple foreign keys
       const { data: taskData, error: taskError } = await supabase
         .from("tasks")
         .select(`
           *,
-          assigned_user:profiles!tasks_assigned_to_fkey(full_name, email),
-          creator:profiles!tasks_created_by_fkey(full_name, email)
+          assigned_user:profiles!assigned_to(full_name, email),
+          creator:profiles!created_by(full_name, email)
         `)
         .eq("id", id)
         .maybeSingle();
 
-      if (taskError) throw taskError;
+      if (taskError) {
+        console.error("[TaskDetail] Database error:", taskError);
+        throw taskError;
+      }
+
       if (!taskData) {
-        setError("Task not found");
+        console.warn("[TaskDetail] No task found with ID:", id);
+        setError("Task not found or you don't have permission to view it.");
         return;
       }
 
       setTask(taskData);
       setError(null);
     } catch (err: any) {
-      console.error("Error fetching task:", err);
-      setError(err.message || "Failed to load task");
+      console.error("[TaskDetail] Fetch error:", err);
+      setError(err.message || "Failed to load task details.");
     }
   }, [id]);
 
@@ -90,7 +97,7 @@ const TaskDetail = () => {
       if (commentsRes.data) setComments(commentsRes.data);
       if (logsRes.data) setLogs(logsRes.data);
     } catch (err) {
-      console.error("Error fetching related data:", err);
+      console.error("[TaskDetail] Error fetching related data:", err);
     }
   }, [id]);
 
@@ -165,10 +172,17 @@ const TaskDetail = () => {
 
   if (error || !task) {
     return (
-      <div className="text-center py-20 max-w-md mx-auto">
-        <AlertCircle className="w-12 h-12 text-rose-500 mx-auto mb-4" />
-        <h2 className="text-2xl font-bold text-slate-900 mb-2">{error || "Task not found"}</h2>
-        <Button onClick={() => navigate("/tasks")} className="mt-4">Back to Tasks</Button>
+      <div className="text-center py-20 max-w-md mx-auto px-4">
+        <div className="w-16 h-16 bg-rose-100 dark:bg-rose-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
+          <AlertCircle className="w-8 h-8 text-rose-600 dark:text-rose-400" />
+        </div>
+        <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">{error || "Task not found"}</h2>
+        <p className="text-slate-500 dark:text-slate-400 mb-8">
+          The task you're looking for might have been deleted or you may not have permission to view it.
+        </p>
+        <Button onClick={() => navigate("/tasks")} className="bg-indigo-600 hover:bg-indigo-700">
+          Back to Tasks
+        </Button>
       </div>
     );
   }
@@ -176,14 +190,14 @@ const TaskDetail = () => {
   return (
     <div className="max-w-5xl mx-auto space-y-8">
       <div className="flex items-center justify-between">
-        <Button variant="ghost" onClick={() => navigate(-1)} className="gap-2">
+        <Button variant="ghost" onClick={() => navigate(-1)} className="gap-2 text-slate-600 dark:text-slate-400">
           <ArrowLeft className="w-4 h-4" /> Back
         </Button>
         <div className="flex items-center gap-2">
-          <Button variant="ghost" onClick={() => setDeleteDialogOpen(true)} className="text-rose-600 hover:bg-rose-50 gap-2">
+          <Button variant="ghost" onClick={() => setDeleteDialogOpen(true)} className="text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/10 gap-2">
             <Trash2 className="w-4 h-4" /> Delete
           </Button>
-          <Button onClick={() => setEditModalOpen(true)} variant="outline" className="gap-2">
+          <Button onClick={() => setEditModalOpen(true)} variant="outline" className="gap-2 border-slate-200 dark:border-slate-800">
             <Pencil className="w-4 h-4" /> Edit
           </Button>
         </div>
@@ -191,48 +205,74 @@ const TaskDetail = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-8">
-          <Card className="border-none shadow-sm bg-white dark:bg-slate-900">
-            <CardHeader>
+          <Card className="border-none shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
+            <div className="h-2 bg-indigo-600" />
+            <CardHeader className="pt-8">
               <div className="flex items-center gap-3 mb-4">
-                <Badge variant="secondary">{task.status}</Badge>
-                <Badge variant="outline" className="capitalize">{task.priority} Priority</Badge>
+                <Badge variant="secondary" className="bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-400 border-none">
+                  {task.status}
+                </Badge>
+                <Badge variant="outline" className={cn(
+                  "capitalize border-none",
+                  task.priority === 'high' ? 'bg-rose-50 text-rose-700 dark:bg-rose-900/20 dark:text-rose-400' :
+                  task.priority === 'medium' ? 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400' :
+                  'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400'
+                )}>
+                  {task.priority} Priority
+                </Badge>
               </div>
-              <CardTitle className="text-3xl font-bold">{task.title}</CardTitle>
-              <CardDescription className="text-base mt-4 whitespace-pre-wrap">
+              <CardTitle className="text-3xl font-bold text-slate-900 dark:text-white">{task.title}</CardTitle>
+              <CardDescription className="text-base mt-4 whitespace-pre-wrap text-slate-600 dark:text-slate-400 leading-relaxed">
                 {task.description || "No description provided."}
               </CardDescription>
             </CardHeader>
-            <CardContent className="border-t border-slate-100 dark:border-slate-800 pt-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <div className="flex items-center gap-3 text-sm">
-                    <Calendar className="w-4 h-4 text-slate-400" />
+            <CardContent className="border-t border-slate-100 dark:border-slate-800 pt-8 pb-8">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+                <div className="space-y-6">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-400">
+                      <Calendar className="w-5 h-5" />
+                    </div>
                     <div>
-                      <p className="text-slate-500 font-medium">Due Date</p>
-                      <p>{task.due_date ? format(new Date(task.due_date), "PPP") : "No due date"}</p>
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Due Date</p>
+                      <p className="text-slate-900 dark:text-slate-100 font-medium">
+                        {task.due_date ? format(new Date(task.due_date), "PPP") : "No due date"}
+                      </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 text-sm">
-                    <User className="w-4 h-4 text-slate-400" />
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-400">
+                      <User className="w-5 h-5" />
+                    </div>
                     <div>
-                      <p className="text-slate-500 font-medium">Assigned To</p>
-                      <p>{task.assigned_user?.full_name || "Unassigned"}</p>
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Assigned To</p>
+                      <p className="text-slate-900 dark:text-slate-100 font-medium">
+                        {task.assigned_user?.full_name || "Unassigned"}
+                      </p>
                     </div>
                   </div>
                 </div>
-                <div className="space-y-4">
-                  <div className="flex items-center gap-3 text-sm">
-                    <Clock className="w-4 h-4 text-slate-400" />
+                <div className="space-y-6">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-400">
+                      <Clock className="w-5 h-5" />
+                    </div>
                     <div>
-                      <p className="text-slate-500 font-medium">Created At</p>
-                      <p>{format(new Date(task.created_at), "PPP p")}</p>
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Created At</p>
+                      <p className="text-slate-900 dark:text-slate-100 font-medium">
+                        {format(new Date(task.created_at), "PPP p")}
+                      </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 text-sm">
-                    <User className="w-4 h-4 text-slate-400" />
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-400">
+                      <User className="w-5 h-5" />
+                    </div>
                     <div>
-                      <p className="text-slate-500 font-medium">Created By</p>
-                      <p>{task.creator?.full_name || "Unknown"}</p>
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Created By</p>
+                      <p className="text-slate-900 dark:text-slate-100 font-medium">
+                        {task.creator?.full_name || "Unknown"}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -241,28 +281,44 @@ const TaskDetail = () => {
           </Card>
 
           <div className="space-y-4">
-            <h3 className="text-xl font-semibold flex items-center gap-2">
+            <h3 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
               <MessageSquare className="w-5 h-5 text-indigo-500" /> Comments
             </h3>
             <div className="space-y-4">
-              {comments.map((comment) => (
-                <div key={comment.id} className="bg-white dark:bg-slate-900 p-4 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-semibold text-sm">{comment.profiles?.full_name || "User"}</span>
-                    <span className="text-xs text-slate-400">{format(new Date(comment.created_at), "MMM d, p")}</span>
-                  </div>
-                  <p className="text-sm whitespace-pre-wrap">{comment.content}</p>
+              {comments.length === 0 ? (
+                <div className="bg-white dark:bg-slate-900 p-8 rounded-xl text-center border border-dashed border-slate-200 dark:border-slate-800">
+                  <p className="text-slate-500 text-sm">No comments yet. Start the conversation!</p>
                 </div>
-              ))}
+              ) : (
+                comments.map((comment) => (
+                  <div key={comment.id} className="bg-white dark:bg-slate-900 p-4 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-bold text-sm text-indigo-600 dark:text-indigo-400">
+                        {comment.profiles?.full_name || "User"}
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">
+                        {format(new Date(comment.created_at), "MMM d, p")}
+                      </span>
+                    </div>
+                    <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">
+                      {comment.content}
+                    </p>
+                  </div>
+                ))
+              )}
               <form onSubmit={handleAddComment} className="space-y-3">
                 <Textarea 
                   placeholder="Write a comment..." 
                   value={commentText}
                   onChange={(e) => setCommentText(e.target.value)}
-                  className="min-h-[100px]"
+                  className="min-h-[120px] bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 focus:ring-indigo-500 rounded-xl"
                 />
                 <div className="flex justify-end">
-                  <Button type="submit" disabled={submittingComment || !commentText.trim()} className="gap-2">
+                  <Button 
+                    type="submit" 
+                    disabled={submittingComment || !commentText.trim()} 
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2 rounded-xl px-6"
+                  >
                     {submittingComment ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                     Post Comment
                   </Button>
@@ -273,24 +329,34 @@ const TaskDetail = () => {
         </div>
 
         <div className="space-y-4">
-          <h3 className="text-xl font-semibold flex items-center gap-2">
+          <h3 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <History className="w-5 h-5 text-indigo-500" /> Activity Log
           </h3>
           <Card className="border-none shadow-sm bg-white dark:bg-slate-900">
-            <CardContent className="p-4">
-              <div className="space-y-6">
-                {logs.map((log, idx) => (
-                  <div key={log.id} className="relative pl-6 pb-6 last:pb-0">
-                    {idx !== logs.length - 1 && <div className="absolute left-[7px] top-[20px] bottom-0 w-[2px] bg-slate-100 dark:bg-slate-800" />}
-                    <div className="absolute left-0 top-[6px] w-4 h-4 rounded-full bg-indigo-100 dark:bg-indigo-900/30 border-2 border-white dark:border-slate-900 flex items-center justify-center">
-                      <div className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+            <CardContent className="p-6">
+              <div className="space-y-8">
+                {logs.length === 0 ? (
+                  <p className="text-slate-500 text-sm italic text-center py-4">No activity recorded yet.</p>
+                ) : (
+                  logs.map((log, idx) => (
+                    <div key={log.id} className="relative pl-8">
+                      {idx !== logs.length - 1 && (
+                        <div className="absolute left-[11px] top-[24px] bottom-[-32px] w-[2px] bg-slate-100 dark:bg-slate-800" />
+                      )}
+                      <div className="absolute left-0 top-[4px] w-6 h-6 rounded-full bg-indigo-50 dark:bg-indigo-900/20 border-2 border-white dark:border-slate-900 flex items-center justify-center z-10">
+                        <div className="w-2 h-2 rounded-full bg-indigo-500" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 leading-tight">
+                          {log.action}
+                        </p>
+                        <p className="text-[10px] text-slate-400 mt-1 font-medium uppercase tracking-wider">
+                          {format(new Date(log.created_at), "MMM d, HH:mm")}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium">{log.action}</p>
-                      <p className="text-xs text-slate-400 mt-1">{format(new Date(log.created_at), "MMM d, HH:mm")}</p>
-                    </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </CardContent>
           </Card>
@@ -304,7 +370,7 @@ const TaskDetail = () => {
         onConfirm={handleDeleteTask} 
         loading={deleting}
         title="Delete Task"
-        description={`Are you sure you want to delete "${task.title}"?`}
+        description={`Are you sure you want to delete "${task.title}"? This action cannot be undone.`}
       />
     </div>
   );
