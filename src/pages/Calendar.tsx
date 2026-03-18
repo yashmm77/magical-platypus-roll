@@ -21,9 +21,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useTasks } from "@/hooks/useTasks";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
 
 const Calendar = () => {
   const navigate = useNavigate();
+  const { activeOrgId } = useAuth();
   const { tasks, isLoading } = useTasks();
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
@@ -40,7 +42,15 @@ const Calendar = () => {
   const nextMonth = () => setCurrentMonth(addMonths(currentMonth, 1));
   const prevMonth = () => setCurrentMonth(subMonths(currentMonth, 1));
 
-  if (isLoading) {
+  if (!activeOrgId) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
+      </div>
+    );
+  }
+
+  if (isLoading && tasks.length === 0) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
         <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />

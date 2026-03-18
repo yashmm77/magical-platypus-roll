@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Users, Plus, Mail, Shield, Calendar, MoreVertical, UserPlus, Loader2 } from "lucide-react";
+import { Users, Mail, Calendar, MoreVertical, UserPlus, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -12,8 +12,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { useAuth } from "@/hooks/useAuth";
 
 const Team = () => {
+  const { activeOrgId } = useAuth();
   const { data: users, isLoading } = useUsers();
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
@@ -22,13 +24,20 @@ const Team = () => {
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
     setInviting(true);
-    // Simulate invite
     await new Promise(resolve => setTimeout(resolve, 1000));
     toast.success(`Invitation sent to ${inviteEmail}`);
     setInviteEmail("");
     setInviteOpen(false);
     setInviting(false);
   };
+
+  if (!activeOrgId) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto">
@@ -93,15 +102,6 @@ const Team = () => {
                     <span>Joined {user.updated_at ? format(new Date(user.updated_at), "MMM yyyy") : "Recently"}</span>
                   </div>
                 </div>
-
-                <div className="mt-6 pt-6 border-t border-slate-50 dark:border-slate-800 flex items-center justify-between">
-                  <div className="flex -space-x-2">
-                    {[1, 2, 3].map((i) => (
-                      <div key={i} className="w-6 h-6 rounded-full border-2 border-white dark:border-slate-900 bg-slate-100 dark:bg-slate-800" />
-                    ))}
-                  </div>
-                  <span className="text-xs text-slate-400 font-medium">12 Active Tasks</span>
-                </div>
               </CardContent>
             </Card>
           ))}
@@ -128,10 +128,6 @@ const Team = () => {
                   onChange={(e) => setInviteEmail(e.target.value)}
                   required
                 />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="role">Role</Label>
-                <Badge variant="outline" className="w-fit">Member</Badge>
               </div>
             </div>
             <DialogFooter>

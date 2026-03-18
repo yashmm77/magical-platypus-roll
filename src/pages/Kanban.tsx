@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,15 +14,17 @@ import { toast } from "sonner";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { logActivity } from "@/utils/activity";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
+import { useAuth } from "@/hooks/useAuth";
 
 const COLUMNS = [
-  { id: "todo", title: "To Do", color: "bg-slate-100" },
-  { id: "in_progress", title: "In Progress", color: "bg-blue-50" },
-  { id: "done", title: "Done", color: "bg-emerald-50" },
+  { id: "Todo", title: "To Do", color: "bg-slate-100" },
+  { id: "In Progress", title: "In Progress", color: "bg-blue-50" },
+  { id: "Done", title: "Done", color: "bg-emerald-50" },
 ];
 
 const Kanban = () => {
   const navigate = useNavigate();
+  const { activeOrgId } = useAuth();
   const { data: users } = useUsers();
   const [tasks, setTasks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -31,11 +33,15 @@ const Kanban = () => {
   const [selectedTask, setSelectedTask] = useState<any>(null);
   const [assigneeFilter, setAssigneeFilter] = useState("all");
 
-  const fetchTasks = async () => {
+  const fetchTasks = useCallback(async () => {
+    if (!activeOrgId) return;
+    
+    setLoading(true);
     try {
       const { data, error } = await supabase
         .from("tasks")
         .select("*")
+        .eq("org_id", activeOrgId)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -45,19 +51,27 @@ const Kanban = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeOrgId]);
 
   useEffect(() => {
     fetchTasks();
+    
+    if (!activeOrgId) return;
+
     const channel = supabase
       .channel('kanban-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, fetchTasks)
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'tasks',
+        filter: `org_id=eq.${activeOrgId}`
+      }, fetchTasks)
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [activeOrgId, fetchTasks]);
 
   const handleStatusChange = async (taskId: string, newStatus: string, taskTitle: string) => {
     setUpdatingTaskId(taskId);
@@ -73,8 +87,8 @@ const Kanban = () => {
         .eq("id", taskId);
 
       if (error) throw error;
-      await logActivity(taskId, `Moved task "${taskTitle}" to ${newStatus.replace('_', ' ')}`);
-      toast.success(`Task moved to ${newStatus.replace('_', ' ')}`);
+      await logActivity(taskId, `Moved task "${taskTitle}" to ${newStatus}`);
+      toast.success(`Task moved to ${newStatus}`);
     } catch (error: any) {
       toast.error(error.message);
       // Revert on error
@@ -123,7 +137,18 @@ const Kanban = () => {
     return user?.full_name?.split(' ')[0] || user?.email?.split('@')[0] || "Unknown";
   };
 
-  if (loading) {
+  if (!activeOrgId) {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center text-center p-8">
+        <div className="w-16 h-16 bg-indigo-50 rounded-full flex items-center justify-center mb-4">
+          <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
+        </div>
+        <h2 className="text-xl font-bold text-slate-900">Loading Workspace...</h2>
+      </div>
+    );
+  }
+
+  if (loading && tasks.length === 0) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
         <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
