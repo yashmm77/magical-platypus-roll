@@ -10,11 +10,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Loader2, Plus, Calendar, User, RefreshCw, Eye, MoreVertical } from "lucide-react";
 import { TaskModal } from "@/components/TaskModal";
 import { useUsers } from "@/hooks/useUsers";
-import { useTasks } from "@/hooks/useTasks";
 import { toast } from "sonner";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { logActivity } from "@/utils/activity";
-import { useQueryClient } from "@tanstack/react-query";
 
 const COLUMNS = [
   { id: "todo", title: "To Do", color: "bg-slate-100" },
@@ -24,25 +22,40 @@ const COLUMNS = [
 
 const Kanban = () => {
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const { data: users } = useUsers();
-  const { tasks, isLoading } = useTasks();
+  const [tasks, setTasks] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<any>(null);
   const [assigneeFilter, setAssigneeFilter] = useState("all");
 
+  const fetchTasks = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("tasks")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setTasks(data || []);
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
+    fetchTasks();
     const channel = supabase
       .channel('kanban-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => {
-        queryClient.invalidateQueries({ queryKey: ["tasks"] });
-      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, fetchTasks)
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [queryClient]);
+  }, []);
 
   const handleStatusChange = async (taskId: string, newStatus: string, taskTitle: string) => {
     try {
@@ -54,7 +67,7 @@ const Kanban = () => {
       if (error) throw error;
       await logActivity(taskId, `Moved task "${taskTitle}" to ${newStatus.replace('_', ' ')}`);
       toast.success(`Task moved to ${newStatus.replace('_', ' ')}`);
-      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      fetchTasks();
     } catch (error: any) {
       toast.error(error.message);
     }
@@ -81,7 +94,7 @@ const Kanban = () => {
     return user?.full_name?.split(' ')[0] || user?.email?.split('@')[0] || "Unknown";
   };
 
-  if (isLoading) {
+  if (loading) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
         <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
@@ -108,7 +121,7 @@ const Kanban = () => {
               ))}
             </SelectContent>
           </Select>
-          <Button variant="outline" size="icon" onClick={() => queryClient.invalidateQueries({ queryKey: ["tasks"] })} className="text-slate-500">
+          <Button variant="outline" size="icon" onClick={fetchTasks} className="text-slate-500">
             <RefreshCw className="w-4 h-4" />
           </Button>
           <Button onClick={() => { setSelectedTask(null); setModalOpen(true); }} className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2">
@@ -194,7 +207,7 @@ const Kanban = () => {
         ))}
       </div>
 
-      <TaskModal open={modalOpen} onOpenChange={setModalOpen} task={selectedTask} onSuccess={() => queryClient.invalidateQueries({ queryKey: ["tasks"] })} />
+      <TaskModal open={modalOpen} onOpenChange={setModalOpen} task={selectedTask} onSuccess={fetchTasks} />
     </div>
   );
 };
