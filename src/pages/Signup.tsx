@@ -23,6 +23,7 @@ const Signup = () => {
     setErrorMsg(null);
 
     try {
+      // We pass full_name in metadata so the database trigger can pick it up
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -36,26 +37,11 @@ const Signup = () => {
       if (error) throw error;
 
       if (data.user) {
-        // Manually create profile record to ensure it exists for task assignments
-        const { error: profileError } = await supabase
-          .from("profiles")
-          .upsert({
-            id: data.user.id,
-            full_name: fullName,
-            email: email,
-            updated_at: new Date().toISOString(),
-          });
-
-        if (profileError) {
-          console.error("Error creating profile:", profileError);
-          // We don't throw here as the user is already created in Auth
-        }
-
         if (!data.session) {
           toast.success("Registration successful! Please check your email for verification.");
           navigate("/login");
         } else {
-          toast.success("Account created and logged in!");
+          toast.success("Account created successfully!");
           navigate("/");
         }
       }
@@ -69,21 +55,21 @@ const Signup = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC] p-4">
-      <Card className="w-full max-w-md border-none shadow-xl">
+    <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC] dark:bg-slate-950 p-4">
+      <Card className="w-full max-w-md border-none shadow-xl dark:bg-slate-900">
         <CardHeader className="space-y-1 flex flex-col items-center">
           <div className="w-12 h-12 bg-indigo-600 rounded-xl flex items-center justify-center mb-4">
             <CheckSquare className="w-8 h-8 text-white" />
           </div>
           <CardTitle className="text-2xl font-bold">Create an account</CardTitle>
           <CardDescription>
-            Join TaskTracker to start managing your team
+            The first user to sign up will be granted Admin privileges.
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSignup}>
           <CardContent className="space-y-4">
             {errorMsg && (
-              <Alert variant="destructive" className="bg-red-50 border-red-200 text-red-800">
+              <Alert variant="destructive" className="bg-red-50 border-red-200 text-red-800 dark:bg-red-900/20 dark:text-red-400">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>{errorMsg}</AlertDescription>
               </Alert>
@@ -96,7 +82,7 @@ const Signup = () => {
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 required
-                className="bg-slate-50 border-slate-200 focus:ring-indigo-500"
+                className="bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 focus:ring-indigo-500"
               />
             </div>
             <div className="space-y-2">
@@ -108,7 +94,7 @@ const Signup = () => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="bg-slate-50 border-slate-200 focus:ring-indigo-500"
+                className="bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 focus:ring-indigo-500"
               />
             </div>
             <div className="space-y-2">
@@ -119,7 +105,7 @@ const Signup = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="bg-slate-50 border-slate-200 focus:ring-indigo-500"
+                className="bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 focus:ring-indigo-500"
               />
             </div>
           </CardContent>
@@ -132,7 +118,7 @@ const Signup = () => {
               {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
               Sign Up
             </Button>
-            <p className="text-sm text-center text-slate-600">
+            <p className="text-sm text-center text-slate-600 dark:text-slate-400">
               Already have an account?{" "}
               <Link to="/login" className="text-indigo-600 font-semibold hover:underline">
                 Log in
